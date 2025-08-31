@@ -2,12 +2,18 @@
 Base classes and data structures for input providers.
 """
 
-import numpy as np
-
+import asyncio
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
+
+import numpy as np
+
+from tactile_teleop.utils.geometry import convert_to_robot_convention
+
+logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
@@ -23,18 +29,30 @@ class EventType(Enum):
 
 
 @dataclass
-class ControlGoal:
+class VRControllerGoal:
     """Control goal."""
 
-    event_type: EventType
-    arm: str
+    event_type: EventType = EventType.IDLE
+    arm: str = "right"
     origin_transform: Optional[np.ndarray] = None
     target_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None
 
 
+@dataclass
+class ArmGoal:
+    """Arm goal."""
+
+    arm: str = "right"
+    relative_transform: Optional[np.ndarray] = None
+    gripper_closed: Optional[bool] = None
+
+
 class BaseInputProvider(ABC):
     """Abstract base class for input providers."""
+
+    def __init__(self):
+        self.queue = asyncio.Queue()
 
     @abstractmethod
     async def start(self, *args, **kwargs):
@@ -45,3 +63,50 @@ class BaseInputProvider(ABC):
     async def stop(self, *args, **kwargs):
         """Stop the input provider."""
         pass
+
+    async def send_goal(self, goal: VRControllerGoal):
+        """Send a control goal."""
+        try:
+            await self.queue.put(goal)
+        except Exception as e:
+            # Handle queue full or other errors
+            pass
+
+    def get_controller_goal(self, arm: str) -> ArmGoal:
+        """Get a control goal from the queue."""
+        arm_goal = ArmGoal(arm=arm)
+        vr_default_goal = VRControllerGoal(arm=arm)
+        vr_goals = []
+        last_grip_active_vr_goal = None
+        while not self.queue.empty():
+            vr_goals.append(self.queue.get_nowait())
+        for vr_goal in vr_goals:
+            if vr_goal.arm != arm:
+                continue
+            if vr_goal.event_type == EventType.GRIP_ACTIVE_INIT:
+                vr_default_goal.origin_transform = vr_goal.target_transform
+            elif vr_goal.event_type == EventType.GRIP_ACTIVE:
+                last_grip_active_vr_goal = vr_goal
+            elif vr_goal.event_type == EventType.GRIP_RELEASE:
+                vr_default_goal.target_transform = None
+            elif vr_goal.event_type == EventType.TRIGGER_ACTIVE:
+                vr_default_goal.gripper_closed = False
+            elif vr_goal.event_type == EventType.TRIGGER_RELEASE:
+                vr_default_goal.gripper_closed = True
+            elif vr_goal.event_type == EventType.RESET_BUTTON_RELEASE:
+                # NOTE: When pressing grip right after reset, this may get overwritten and not actually reset
+                vr_default_goal.origin_transform = vr_default_goal.target_transform
+                vr_default_goal.target_transform = vr_default_goal.target_transform
+            else:
+                raise ValueError(f"Unknown event type: {vr_goal.event_type}")
+
+        if last_grip_active_vr_goal is not None:
+            # TODO: Make sure this is general and not just for the piper arm
+            vr_reference_transform = convert_to_robot_convention(last_grip_active_vr_goal.origin_transform)  # type: ignore
+            vr_target_transform = convert_to_robot_convention(last_grip_active_vr_goal.target_transform)  # type: ignore
+            relative_transform = np.linalg.inv(vr_reference_transform) @ vr_target_transform
+            arm_goal.relative_transform = relative_transform
+
+        arm_goal.gripper_closed = vr_default_goal.gripper_closed
+
+        return arm_goal
