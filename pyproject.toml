@@ -3,18 +3,17 @@ name = "tactile-teleop"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "dotenv>=0.9.9",
     "livekit>=1.0.12",
     "livekit-api>=1.0.5",
-    "numpy>=2.3.2",
 ]
 
 
 [tool.black]
 line-length = 120
-target-version = ['py310']
+target-version = ['py310', 'py311', 'py312']
 
 [tool.isort]
 profile = "black"

@@ -16,12 +16,16 @@ class API:
         self.vr_controller = VRController()
         self.camera_streamer = CameraStreamer(self.config.camera_config)
 
-    async def start(self):
+    async def start_vr_controller(self):
         await self.vr_controller.start(self.config.livekit_room, self.config.controllers_processing_participant)
+
+    async def start_camera_streamer(self):
         await self.camera_streamer.start(self.config.livekit_room, self.config.camera_streamer_participant)
 
-    async def stop(self):
+    async def stop_vr_controller(self):
         await self.vr_controller.stop()
+
+    async def stop_camera_streamer(self):
         await self.camera_streamer.stop()
 
     async def send_stereo_frame(self, frame: np.ndarray):
