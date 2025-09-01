@@ -1,3 +1,3 @@
-from tactile_teleop.api import API
+from tactile_teleop.api import TactileAPI
 
-__all__ = ["API"]
+__all__ = ["TactileAPI"]

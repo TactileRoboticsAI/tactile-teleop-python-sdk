@@ -46,13 +46,15 @@ class ArmGoal:
     arm: str = "right"
     relative_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None
+    reset: bool = False
 
 
 class BaseInputProvider(ABC):
     """Abstract base class for input providers."""
 
     def __init__(self):
-        self.queue = asyncio.Queue()
+        self.left_queue = asyncio.Queue()
+        self.right_queue = asyncio.Queue()
 
     @abstractmethod
     async def start(self, *args, **kwargs):
@@ -67,8 +69,13 @@ class BaseInputProvider(ABC):
     async def send_goal(self, goal: VRControllerGoal):
         """Send a control goal."""
         try:
-            await self.queue.put(goal)
-        except Exception as e:
+            if goal.arm == "left":
+                await self.left_queue.put(goal)
+            elif goal.arm == "right":
+                await self.right_queue.put(goal)
+            else:
+                raise ValueError(f"Unknown arm: {goal.arm}")
+        except Exception:
             # Handle queue full or other errors
             pass
 
@@ -78,8 +85,9 @@ class BaseInputProvider(ABC):
         vr_default_goal = VRControllerGoal(arm=arm)
         vr_goals = []
         last_grip_active_vr_goal = None
-        while not self.queue.empty():
-            vr_goals.append(self.queue.get_nowait())
+        queue = self.left_queue if arm == "left" else self.right_queue
+        while not queue.empty():
+            vr_goals.append(queue.get_nowait())
         for vr_goal in vr_goals:
             if vr_goal.arm != arm:
                 continue
@@ -95,8 +103,9 @@ class BaseInputProvider(ABC):
                 vr_default_goal.gripper_closed = True
             elif vr_goal.event_type == EventType.RESET_BUTTON_RELEASE:
                 # NOTE: When pressing grip right after reset, this may get overwritten and not actually reset
-                vr_default_goal.origin_transform = vr_default_goal.target_transform
-                vr_default_goal.target_transform = vr_default_goal.target_transform
+                vr_default_goal.origin_transform = None
+                vr_default_goal.target_transform = None
+                arm_goal.reset = True
             else:
                 raise ValueError(f"Unknown event type: {vr_goal.event_type}")
 
