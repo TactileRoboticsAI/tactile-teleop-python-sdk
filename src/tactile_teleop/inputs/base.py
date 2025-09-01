@@ -46,7 +46,8 @@ class ArmGoal:
     arm: str = "right"
     relative_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None
-    reset: bool = False
+    reset_to_init: bool = False
+    reset_origin: bool = False
 
 
 class BaseInputProvider(ABC):
@@ -55,6 +56,8 @@ class BaseInputProvider(ABC):
     def __init__(self):
         self.left_queue = asyncio.Queue()
         self.right_queue = asyncio.Queue()
+        self.left_gripper_closed = True
+        self.right_gripper_closed = True
 
     @abstractmethod
     async def start(self, *args, **kwargs):
@@ -75,7 +78,7 @@ class BaseInputProvider(ABC):
                 await self.right_queue.put(goal)
             else:
                 raise ValueError(f"Unknown arm: {goal.arm}")
-        except Exception:
+        except Exception as e:
             # Handle queue full or other errors
             pass
 
@@ -93,19 +96,26 @@ class BaseInputProvider(ABC):
                 continue
             if vr_goal.event_type == EventType.GRIP_ACTIVE_INIT:
                 vr_default_goal.origin_transform = vr_goal.target_transform
+                arm_goal.reset_origin = True
             elif vr_goal.event_type == EventType.GRIP_ACTIVE:
                 last_grip_active_vr_goal = vr_goal
             elif vr_goal.event_type == EventType.GRIP_RELEASE:
                 vr_default_goal.target_transform = None
             elif vr_goal.event_type == EventType.TRIGGER_ACTIVE:
-                vr_default_goal.gripper_closed = False
+                if arm == "left":
+                    self.left_gripper_closed = False
+                elif arm == "right":
+                    self.right_gripper_closed = False
             elif vr_goal.event_type == EventType.TRIGGER_RELEASE:
-                vr_default_goal.gripper_closed = True
+                if arm == "left":
+                    self.left_gripper_closed = True
+                elif arm == "right":
+                    self.right_gripper_closed = True
             elif vr_goal.event_type == EventType.RESET_BUTTON_RELEASE:
                 # NOTE: When pressing grip right after reset, this may get overwritten and not actually reset
                 vr_default_goal.origin_transform = None
                 vr_default_goal.target_transform = None
-                arm_goal.reset = True
+                arm_goal.reset_to_init = True
             else:
                 raise ValueError(f"Unknown event type: {vr_goal.event_type}")
 
@@ -116,6 +126,6 @@ class BaseInputProvider(ABC):
             relative_transform = np.linalg.inv(vr_reference_transform) @ vr_target_transform
             arm_goal.relative_transform = relative_transform
 
-        arm_goal.gripper_closed = vr_default_goal.gripper_closed
+        arm_goal.gripper_closed = self.left_gripper_closed if arm == "left" else self.right_gripper_closed
 
         return arm_goal
