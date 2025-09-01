@@ -14,6 +14,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 class TactileAPI:
     def __init__(self):
         self.config = TactileTeleopConfig()
+        self.vr_controller = None
+        self.camera_streamer = None
 
     async def connect_vr_controller(self):
         self.vr_controller = VRController()
@@ -24,18 +26,28 @@ class TactileAPI:
         await self.camera_streamer.start(self.config.livekit_room, self.config.camera_streamer_participant)
 
     async def disconnect_vr_controller(self):
+        if not self.vr_controller:
+            return
         await self.vr_controller.stop()
 
     async def disconnect_camera_streamer(self):
+        if not self.camera_streamer:
+            return
         await self.camera_streamer.stop()
 
     async def send_stereo_frame(self, frame: np.ndarray):
+        if not self.camera_streamer:
+            raise ValueError("Camera streamer not connected")
         await self.camera_streamer.send_stereo_frame(frame)
         await asyncio.sleep(0.001)
 
     async def send_single_frame(self, frame: np.ndarray):
+        if not self.camera_streamer:
+            raise ValueError("Camera streamer not connected")
         await self.camera_streamer.send_single_frame(frame)
 
     async def get_controller_goal(self, arm: str) -> ArmGoal:
+        if not self.vr_controller:
+            raise ValueError("VR controller not connected")
         await asyncio.sleep(0.001)
         return self.vr_controller.get_controller_goal(arm)

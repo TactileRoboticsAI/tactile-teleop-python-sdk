@@ -9,8 +9,8 @@ class InputType(Enum):
 @dataclass
 class CameraConfig:
     stereo_camera: bool = False
-    width: int = 1280
-    height: int = 720
+    width: int = 580
+    height: int = 480
 
 
 @dataclass
