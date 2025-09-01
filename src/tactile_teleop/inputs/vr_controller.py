@@ -76,10 +76,8 @@ class VRController(BaseInputProvider):
             )
 
             # Add connection state debugging
-            print(f"🔍 Room connection state: {self.room.connection_state}")
-            print(f"🔍 Local participant: {self.room.local_participant.identity}")
-            print(f"🔍 Remote participants: {len(self.room.remote_participants)}")
-
+            logger.info(f"🔍 Room connection state: {self.room.connection_state}")
+            logger.info(f"🔍 Local participant: {self.room.local_participant.identity}")
             # Log room state
             logger.info(f"📊 Room participants: {len(self.room.remote_participants)}")
             for participant in self.room.remote_participants.values():

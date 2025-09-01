@@ -19,3 +19,8 @@ target-version = ['py310']
 [tool.isort]
 profile = "black"
 line_length = 120
+
+[project.optional-dependencies]
+test = [
+    "opencv-python>=4.8.0",
+]
