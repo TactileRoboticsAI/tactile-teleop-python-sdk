@@ -1,8 +1,8 @@
 import logging
 import os
-from typing import Optional
-
 import numpy as np
+
+from typing import Optional
 from dotenv import load_dotenv
 from livekit import rtc
 
@@ -10,6 +10,7 @@ from tactile_teleop.config import CameraConfig
 from tactile_teleop.utils.livekit_auth import generate_token
 
 logger = logging.getLogger(__name__)
+
 # Load environment variables from the project root
 load_dotenv()
 
