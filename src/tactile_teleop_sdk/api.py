@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import numpy as np
+import requests
 
 from tactile_teleop_sdk.camera.camera_streamer import CameraStreamer
 from tactile_teleop_sdk.config import TactileTeleopConfig
@@ -12,28 +13,67 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 
 class TactileAPI:
-    def __init__(self):
+    def __init__(self, api_key: str, robot_name: str):
         self.config = TactileTeleopConfig()
         self.vr_controller = None
         self.camera_streamer = None
+        self.api_key = api_key
+        self.robot_name = robot_name
+        self.backend_url = "https://10.19.20.36:8443"
+        self.session_data = None
+
+    async def authenticate(self, participant_identity: str):
+        """
+        Authenticate robot and get LiveKit session.
+
+        This calls the FastAPI backend which:
+        1. Verifies the robot exists in Supabase
+        2. Validates the API key hash
+        3. Creates a temporary LiveKit session
+        4. Returns room name and token for LiveKit connection
+        """
+        url = f"{self.backend_url}/api/sdk/auth"
+
+        payload = {
+            "robot_name": self.robot_name,
+            "api_key": self.api_key,
+            "participant_identity": participant_identity,
+        }
+
+        try:
+            response = requests.post(url, json=payload, timeout=10, verify=False)
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Authentication failed: {e}")
+            if hasattr(e, "response") and e.response is not None:
+                try:
+                    error_detail = e.response.text
+                    print(f"Error details: {error_detail}")
+                except Exception as e:
+                    print(f"Error details: {e}")
+            raise
 
     async def connect_vr_controller(self):
-        
+        participant_identity = "controllers-processing"
+        livekit_data = await self.authenticate(participant_identity)
         self.vr_controller = VRController()
         await self.vr_controller.start(
-            self.config.livekit_room,
-            self.config.controllers_processing_participant,
-            self.config.livekit_token,
-            self.config.livekit_url,
+            livekit_data["room_name"],
+            participant_identity,
+            livekit_data["token"],
+            livekit_data["livekit_url"],
         )
 
     async def connect_camera_streamer(self):
+        participant_identity = "camera_streamer"
+        livekit_data = await self.authenticate(participant_identity)
         self.camera_streamer = CameraStreamer(self.config.camera_config)
         await self.camera_streamer.start(
-            self.config.livekit_room,
-            self.config.camera_streamer_participant,
-            self.config.livekit_token,
-            self.config.livekit_url,
+            livekit_data["room_name"],
+            participant_identity,
+            livekit_data["token"],
+            livekit_data["livekit_url"],
         )
 
     async def disconnect_vr_controller(self):

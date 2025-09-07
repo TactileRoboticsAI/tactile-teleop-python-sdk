@@ -8,6 +8,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "livekit>=1.0.12",
     "livekit-api>=1.0.5",
+    "requests>=2.32.5",
 ]
 
 
