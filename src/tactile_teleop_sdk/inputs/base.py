@@ -11,7 +11,7 @@ from typing import Optional
 
 import numpy as np
 
-from tactile_teleop.utils.geometry import convert_to_robot_convention
+from tactile_teleop_sdk.utils.geometry import convert_to_robot_convention
 
 logger = logging.getLogger(__name__)
 

@@ -1,21 +1,16 @@
 import logging
-import os
-import numpy as np
-
 from typing import Optional
+
+import numpy as np
 from dotenv import load_dotenv
 from livekit import rtc
 
-from tactile_teleop.config import CameraConfig
-from tactile_teleop.utils.livekit_auth import generate_token
+from tactile_teleop_sdk.config import CameraConfig
 
 logger = logging.getLogger(__name__)
 
 # Load environment variables from the project root
 load_dotenv()
-
-LIVEKIT_URL = os.getenv("LIVEKIT_URL")
-
 
 class CameraStreamer:
     def __init__(
@@ -69,17 +64,7 @@ class CameraStreamer:
             logger.error(f"Failed to publish video track: {e}", exc_info=True)
             raise
 
-    async def start(self, room_name: str, participant_name: str):
-        if not LIVEKIT_URL:
-            logger.error("LIVEKIT_URL environment variables must be set")
-            return
-
-        try:
-            lk_token = generate_token(room_name=room_name, participant_identity=participant_name, canPublish=True)
-        except Exception as e:
-            logger.error(f"Failed to generate token: {e}", exc_info=True)
-            return
-
+    async def start(self, room_name: str, participant_name: str, token: str, livekit_url: str):
         self.room = rtc.Room()
 
         @self.room.on("participant_connected")
@@ -95,7 +80,7 @@ class CameraStreamer:
             print(f"📹 Track published by {participant.identity}: {publication.kind}")
 
         try:
-            await self.room.connect(LIVEKIT_URL, lk_token)
+            await self.room.connect(livekit_url, token)
             logger.info(f"✅ Connected to LiveKit room {room_name} as {participant_name}")
             logger.info(f"🔍 Room connection state: {self.room.connection_state}")
             logger.info(f"🔍 Local participant: {self.room.local_participant.identity}")

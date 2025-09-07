@@ -3,10 +3,10 @@ import logging
 
 import numpy as np
 
-from tactile_teleop.camera.camera_streamer import CameraStreamer
-from tactile_teleop.config import TactileTeleopConfig
-from tactile_teleop.inputs.base import ArmGoal
-from tactile_teleop.inputs.vr_controller import VRController
+from tactile_teleop_sdk.camera.camera_streamer import CameraStreamer
+from tactile_teleop_sdk.config import TactileTeleopConfig
+from tactile_teleop_sdk.inputs.base import ArmGoal
+from tactile_teleop_sdk.inputs.vr_controller import VRController
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -18,12 +18,23 @@ class TactileAPI:
         self.camera_streamer = None
 
     async def connect_vr_controller(self):
+        
         self.vr_controller = VRController()
-        await self.vr_controller.start(self.config.livekit_room, self.config.controllers_processing_participant)
+        await self.vr_controller.start(
+            self.config.livekit_room,
+            self.config.controllers_processing_participant,
+            self.config.livekit_token,
+            self.config.livekit_url,
+        )
 
     async def connect_camera_streamer(self):
         self.camera_streamer = CameraStreamer(self.config.camera_config)
-        await self.camera_streamer.start(self.config.livekit_room, self.config.camera_streamer_participant)
+        await self.camera_streamer.start(
+            self.config.livekit_room,
+            self.config.camera_streamer_participant,
+            self.config.livekit_token,
+            self.config.livekit_url,
+        )
 
     async def disconnect_vr_controller(self):
         if not self.vr_controller:

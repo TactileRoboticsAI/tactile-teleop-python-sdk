@@ -1,19 +1,16 @@
 import asyncio
 import json
 import logging
-import os
 from dataclasses import dataclass
 from typing import Dict
 
 import numpy as np
 from livekit import rtc
 
-from tactile_teleop.inputs.base import BaseInputProvider, EventType, VRControllerGoal
-from tactile_teleop.utils.geometry import pose2transform
-from tactile_teleop.utils.livekit_auth import generate_token
+from tactile_teleop_sdk.inputs.base import BaseInputProvider, EventType, VRControllerGoal
+from tactile_teleop_sdk.utils.geometry import pose2transform
 
 logger = logging.getLogger(__name__)
-LIVEKIT_URL = os.getenv("LIVEKIT_URL")
 
 
 @dataclass
@@ -39,14 +36,8 @@ class VRController(BaseInputProvider):
         self.right_controller = VRControllerState(hand="right")
         self._data_tasks: set[asyncio.Task] = set()
 
-    async def start(self, room_name: str, participant_identity: str):
+    async def start(self, room_name: str, participant_identity: str, token: str, livekit_url: str):
         """Start the VR controller."""
-        try:
-            lk_token = generate_token(room_name=room_name, participant_identity=participant_identity)
-        except Exception as e:
-            logger.error(f"Failed to generate token: {e}", exc_info=True)
-            return
-
         self.room = rtc.Room()
 
         @self.room.on("participant_connected")
@@ -70,7 +61,7 @@ class VRController(BaseInputProvider):
             task.add_done_callback(self._data_tasks.discard)
 
         try:
-            await self.room.connect(LIVEKIT_URL, lk_token)
+            await self.room.connect(livekit_url, token)
             logger.info(
                 f"(VRControllerInputProvider) ✅ Connected to LiveKit room {room_name} as {participant_identity}"
             )
