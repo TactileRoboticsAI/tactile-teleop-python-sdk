@@ -2,12 +2,12 @@
 
 ## Overview
 
-The Tactile Teleop Python SDK enables seamless integration between robotic systems and VR-based teleoperation. It provides:
+The Tactile Teleop Python SDK enables seamless integration between robotic manipulation systems and VR-based teleoperation. It provides:
 
-- **VR Controller Input**: Real-time VR controller data for robotic arm control
-- **Camera Streaming**: Stereo and mono camera feed streaming to VR headsets
-- **LiveKit Integration**: Secure, low-latency communication via LiveKit
-- **Easy Authentication**: Simple API key-based authentication with Tactile Robotics backend
+- **VR Controller Input**: Real-time low-latency VR controller data for robotic arm control  
+- **Camera Streaming**: Stereo and mono camera feed streaming to VR headsets  
+- **Easy Setup**: Connect your robot in minutes - just generate an API key at [teleop.tactilerobotics.ai](https://teleop.tactilerobotics.ai), plug it into the Python SDK, and access your robot directly from the VR headset’s native browser.
+## Quickstart
 
 ### Conda Installation
 
@@ -27,22 +27,29 @@ cd tactile-teleop-python-sdk
 uv sync
 ```
 
-## Quick Start
+### Create API key
+
+Visit [teleop.tactilerobotics.ai](https://teleop.tactilerobotics.ai), register and create a new robot. Save the automatically generated API key.
+
+### Minimal Example
 
 ```python
 import asyncio
 import numpy as np
 from tactile_teleop_sdk import TactileAPI
 
+CAMERA_WIDTH = 580
+CAMERA_HEIGHT = 480
+
 async def main():
     # Initialize the API
-    api = TactileAPI(api_key="your-api-key", robot_name="your-robot")
-    
+    api = TactileAPI(api_key="your-api-key")
+
     # Connect VR controllers
     await api.connect_vr_controller()
     
     # Connect camera streamer
-    await api.connect_camera_streamer()
+    await api.connect_camera_streamer(CAMERA_HEIGHT, CAMERA_WIDTH)
     
     try:
         while True:
@@ -71,56 +78,13 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+### On the VR Headset
 
-## API Reference
-
-### TactileAPI
-
-The main class for interacting with the Tactile Teleop system.
-
-#### Constructor
-
-```python
-TactileAPI(api_key: str, robot_name: str)
-```
-
-- `api_key`: Your Robot API key
-- `robot_name`: Your robot name from the dashboard
+Go to the Browser of your VR headset and visit [teleop.tactilerobotics.ai](https://teleop.tactilerobotics.ai). Login, and press start VR Control on the robot.
 
 #### Controller Mapping
 
 - **Grip Button**: Sets reference frame when first pressed, enables position control when held
 - **Trigger Button**: Controls gripper (pressed = open, released = closed)
-- **Reset Button (X/A)**: Resets arm to initial position
+- **Reset Button (X/A)**: Trigger to reset arm to initial position
 - **Position Tracking**: Controller movement translates to arm movement when grip is held
-
-## Camera Configuration
-
-Configure camera settings through the `CameraConfig` class:
-
-```python
-from tactile_teleop_sdk.config import CameraConfig, TactileTeleopConfig
-
-# Custom camera configuration
-camera_config = CameraConfig(
-    stereo_camera=True,  # Set to True for stereo cameras
-    width=640,           # Camera width
-    height=480           # Camera height
-)
-
-# Apply configuration (modify TactileAPI initialization as needed)
-```
-
-## Frame Formats
-
-### Stereo Frames
-- **Input**: `np.ndarray` with shape `(height, 2*width, 3)`
-- **Format**: Horizontally concatenated left and right images
-- **Data Type**: `uint8`
-- **Color Space**: RGB
-
-### Mono Frames
-- **Input**: `np.ndarray` with shape `(height, width, 3)`
-- **Format**: Single camera image (automatically duplicated for stereo display)
-- **Data Type**: `uint8`
-- **Color Space**: RGB
