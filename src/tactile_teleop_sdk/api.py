@@ -15,11 +15,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 class TactileAPI:
     def __init__(self, api_key: str):
         self.config = TactileTeleopConfig()
-        self.vr_controller = None
-        self.camera_streamer = None
         self.api_key = api_key
-        self.backend_url = "https://teleop.tactilerobotics.ai"
-        self.session_data = None
+        self.backend_url = self.config.backend_url
 
     async def authenticate(self, participant_identity: str):
         """
@@ -51,27 +48,25 @@ class TactileAPI:
         Connect to the VR controllers.
         Run this before calling get_controller_goal.
         """
-        participant_identity = "controllers-processing"
-        livekit_data = await self.authenticate(participant_identity)
+        livekit_data = await self.authenticate(self.config.controller_participant)
         self.vr_controller = VRController()
         await self.vr_controller.start(
             livekit_data["room_name"],
-            participant_identity,
+            self.config.controller_participant,
             livekit_data["token"],
             livekit_data["livekit_url"],
         )
 
-    async def connect_camera_streamer(self):
+    async def connect_camera_streamer(self, height: int, width: int):
         """
         Connect the camera streamer to the VR Headset.
         Run this before calling send_stereo_frame or send_single_frame.
         """
-        participant_identity = "camera_streamer"
-        livekit_data = await self.authenticate(participant_identity)
-        self.camera_streamer = CameraStreamer(self.config.camera_config)
+        livekit_data = await self.authenticate(self.config.camera_participant)
+        self.camera_streamer = CameraStreamer(height, width)
         await self.camera_streamer.start(
             livekit_data["room_name"],
-            participant_identity,
+            self.config.camera_participant,
             livekit_data["token"],
             livekit_data["livekit_url"],
         )
@@ -94,7 +89,7 @@ class TactileAPI:
             return
         await self.camera_streamer.stop()
 
-    async def send_stereo_frame(self, frame: np.ndarray):
+    async def send_stereo_frame(self, left_frame: np.ndarray, right_frame: np.ndarray):
         """Send the left and right frames of a stereo camera to the camera streamer.
            The frames should be horizontally concatenated.
 
@@ -104,6 +99,7 @@ class TactileAPI:
         Raises:
             ValueError: Camera streamer not connected
         """
+        frame = np.concatenate([left_frame, right_frame], axis=1)
         if not self.camera_streamer:
             raise ValueError("Camera streamer not connected")
         await self.camera_streamer.send_stereo_frame(frame)

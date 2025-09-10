@@ -2,23 +2,19 @@ import logging
 from typing import Optional
 
 import numpy as np
-from dotenv import load_dotenv
 from livekit import rtc
-
-from tactile_teleop_sdk.config import CameraConfig
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables from the project root
-load_dotenv()
 
 class CameraStreamer:
     def __init__(
         self,
-        camera_config: CameraConfig,
+        height: int,
+        width: int,
     ):
-        self.width = camera_config.width * 2
-        self.height = camera_config.height
+        self.width = width * 2
+        self.height = height
         self.source = rtc.VideoSource(self.width, self.height)
 
         self.track = rtc.LocalVideoTrack.create_video_track("robot0-birds-eye", self.source)

@@ -1,7 +1,5 @@
 # Tactile Teleop Python SDK
 
-A Python SDK for robotic teleoperation using VR controllers and camera streaming through LiveKit.
-
 ## Overview
 
 The Tactile Teleop Python SDK enables seamless integration between robotic systems and VR-based teleoperation. It provides:

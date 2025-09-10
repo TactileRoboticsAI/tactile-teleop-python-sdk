@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 
 
@@ -21,43 +19,6 @@ def pose2transform(position: np.ndarray, quaternion: np.ndarray) -> np.ndarray:
     T[:3, 3] = [x, y, z]
 
     return T
-
-
-def transform2pose(matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Extract position and quaternion (xyzw) from a 4x4 transformation matrix."""
-    R = matrix[:3, :3]
-    t = matrix[:3, 3]
-
-    trace = np.trace(R)
-    if trace > 0.0:
-        s = 0.5 / np.sqrt(trace + 1.0)
-        qw = 0.25 / s
-        qx = (R[2, 1] - R[1, 2]) * s
-        qy = (R[0, 2] - R[2, 0]) * s
-        qz = (R[1, 0] - R[0, 1]) * s
-    else:
-        if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
-            qw = (R[2, 1] - R[1, 2]) / s
-            qx = 0.25 * s
-            qy = (R[0, 1] + R[1, 0]) / s
-            qz = (R[0, 2] + R[2, 0]) / s
-        elif R[1, 1] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
-            qw = (R[0, 2] - R[2, 0]) / s
-            qx = (R[0, 1] + R[1, 0]) / s
-            qy = 0.25 * s
-            qz = (R[1, 2] + R[2, 1]) / s
-        else:
-            s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
-            qw = (R[1, 0] - R[0, 1]) / s
-            qx = (R[0, 2] + R[2, 0]) / s
-            qy = (R[1, 2] + R[2, 1]) / s
-            qz = 0.25 * s
-
-    position = t
-    quaternion = np.array([qx, qy, qz, qw])
-    return position, quaternion
 
 
 def xyzrpy2transform(x: float, y: float, z: float, roll: float, pitch: float, yaw: float) -> np.ndarray:
