@@ -13,29 +13,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 
 class TactileAPI:
-    def __init__(self, api_key: str, robot_name: str):
+    def __init__(self, api_key: str):
         self.config = TactileTeleopConfig()
         self.vr_controller = None
         self.camera_streamer = None
         self.api_key = api_key
-        self.robot_name = robot_name
-        self.backend_url = "https://10.19.20.36:8443"
+        self.backend_url = "https://teleop.tactilerobotics.ai"
         self.session_data = None
 
     async def authenticate(self, participant_identity: str):
         """
         Authenticate robot and get LiveKit session.
-
-        This calls the FastAPI backend which:
-        1. Verifies the robot exists in Supabase
-        2. Validates the API key hash
-        3. Creates a temporary LiveKit session
-        4. Returns room name and token for LiveKit connection
         """
         url = f"{self.backend_url}/api/sdk/auth"
 
         payload = {
-            "robot_name": self.robot_name,
             "api_key": self.api_key,
             "participant_identity": participant_identity,
         }
@@ -55,6 +47,10 @@ class TactileAPI:
             raise
 
     async def connect_vr_controller(self):
+        """
+        Connect to the VR controllers.
+        Run this before calling get_controller_goal.
+        """
         participant_identity = "controllers-processing"
         livekit_data = await self.authenticate(participant_identity)
         self.vr_controller = VRController()
@@ -66,6 +62,10 @@ class TactileAPI:
         )
 
     async def connect_camera_streamer(self):
+        """
+        Connect the camera streamer to the VR Headset.
+        Run this before calling send_stereo_frame or send_single_frame.
+        """
         participant_identity = "camera_streamer"
         livekit_data = await self.authenticate(participant_identity)
         self.camera_streamer = CameraStreamer(self.config.camera_config)
@@ -77,27 +77,66 @@ class TactileAPI:
         )
 
     async def disconnect_vr_controller(self):
+        """
+        Disconnect from the VR controllers.
+        Run this after you are finished with the VR controllers.
+        """
         if not self.vr_controller:
             return
         await self.vr_controller.stop()
 
     async def disconnect_camera_streamer(self):
+        """
+        Disconnect from the camera streamer.
+        Run this after you are finished with the camera streamer.
+        """
         if not self.camera_streamer:
             return
         await self.camera_streamer.stop()
 
     async def send_stereo_frame(self, frame: np.ndarray):
+        """Send the left and right frames of a stereo camera to the camera streamer.
+           The frames should be horizontally concatenated.
+
+        Args:
+            frame (np.ndarray): The horizontally concatenated stereo frame, shape (height, 2*width, 3).
+
+        Raises:
+            ValueError: Camera streamer not connected
+        """
         if not self.camera_streamer:
             raise ValueError("Camera streamer not connected")
         await self.camera_streamer.send_stereo_frame(frame)
         await asyncio.sleep(0.001)
 
     async def send_single_frame(self, frame: np.ndarray):
+        """Send the single frame from a mono camera to the camera streamer.
+
+        Args:
+            frame (np.ndarray): The single frame, shape (height, width, 3).
+
+        Raises:
+            ValueError: Camera streamer not connected
+        """
         if not self.camera_streamer:
             raise ValueError("Camera streamer not connected")
         await self.camera_streamer.send_single_frame(frame)
 
     async def get_controller_goal(self, arm: str) -> ArmGoal:
+        """Get the VR Controller information.
+
+        Args:
+            arm (str): The arm to get the goal for.
+
+        Returns:
+            ArmGoal: Contains the following fields:
+                - arm: left or right.
+                - relative_transform: The relative transform of the VR Controller relative to the reference frame.
+                - gripper_closed: False if trigger button is pressed, otherwise True.
+                - reset_to_init: True if the the X, or A button is pressed, otherwise False.
+                - reset_reference: True if the Grip button is activated, otherwise False.
+                                   Sets the VR reference frame to the current frame.
+        """
         if not self.vr_controller:
             raise ValueError("VR controller not connected")
         await asyncio.sleep(0.001)

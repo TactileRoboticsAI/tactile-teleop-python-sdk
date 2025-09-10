@@ -47,7 +47,7 @@ class ArmGoal:
     relative_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None
     reset_to_init: bool = False
-    reset_origin: bool = False
+    reset_reference: bool = False
 
 
 class BaseInputProvider(ABC):
@@ -96,7 +96,7 @@ class BaseInputProvider(ABC):
                 continue
             if vr_goal.event_type == EventType.GRIP_ACTIVE_INIT:
                 vr_default_goal.origin_transform = vr_goal.target_transform
-                arm_goal.reset_origin = True
+                arm_goal.reset_reference = True
             elif vr_goal.event_type == EventType.GRIP_ACTIVE:
                 last_grip_active_vr_goal = vr_goal
             elif vr_goal.event_type == EventType.GRIP_RELEASE:
