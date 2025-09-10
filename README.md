@@ -12,7 +12,7 @@ The Tactile Teleop Python SDK enables seamless integration between robotic manip
 ### Conda Installation
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:TactileRoboticsAI/tactile-teleop-python-sdk.git
 cd tactile-teleop-python-sdk
 conda create -n tactile python=3.10
 conda activate
@@ -22,7 +22,7 @@ pip install -e .
 ### UV Installation
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:TactileRoboticsAI/tactile-teleop-python-sdk.git
 cd tactile-teleop-python-sdk
 uv sync
 ```
