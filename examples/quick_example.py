@@ -3,7 +3,6 @@ import asyncio
 import numpy as np
 
 from tactile_teleop_sdk import TactileAPI
-from tactile_teleop_sdk.utils.visualizer import create_visualizer
 
 CAMERA_WIDTH = 580
 CAMERA_HEIGHT = 480
@@ -11,12 +10,7 @@ CAMERA_HEIGHT = 480
 
 async def main():
     # Initialize the API
-    api = TactileAPI(api_key="tr_ItBlqHILUi4vIyhRtgzTh-47yZZaMqz2uc_-QranDdA")
-
-    # Initialize visualizer (will open browser automatically)
-    visualizer = create_visualizer()
-    if visualizer:
-        print("Visualization available at: http://localhost:7000")
+    api = TactileAPI(api_key="tr_dDJ6_zdswvHsikjG4J4S0GbrtCT4u4iofMPEndZSOJw")
 
     # Connect VR controllers
     await api.connect_vr_controller()
@@ -30,26 +24,23 @@ async def main():
             left_goal = await api.get_controller_goal("left")
             right_goal = await api.get_controller_goal("right")
 
-            # Visualize VR controller relative transforms
-            if visualizer:
-                visualizer.update_vr_controllers(
-                    left_transform=left_goal.relative_transform,
-                    right_transform=right_goal.relative_transform,
-                    scale=0.15,
-                )
+            # Process controller data
+            if left_goal.relative_transform is not None:
+                print(f"Left arm transform: {left_goal.relative_transform}")
+
+            if right_goal.relative_transform is not None:
+                print(f"Left arm transform: {left_goal.relative_transform}")
 
             # Send camera frame (example with dummy data)
-            dummy_frame = np.random.randint(0, 255, (CAMERA_HEIGHT, CAMERA_WIDTH, 3), dtype=np.uint8)
+            dummy_frame = np.random.randint(0, 255, (480, 580, 3), dtype=np.uint8)
             await api.send_single_frame(dummy_frame)
 
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01)  # 100Hz loop
 
     finally:
+        # Clean up connections
         await api.disconnect_vr_controller()
         await api.disconnect_camera_streamer()
-
-        if visualizer:
-            visualizer.close()
 
 
 if __name__ == "__main__":
