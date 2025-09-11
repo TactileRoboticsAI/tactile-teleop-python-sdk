@@ -10,7 +10,7 @@ CAMERA_HEIGHT = 480
 
 async def main():
     # Initialize the API
-    api = TactileAPI(api_key="tr_dDJ6_zdswvHsikjG4J4S0GbrtCT4u4iofMPEndZSOJw")
+    api = TactileAPI(api_key="your_key_here")
 
     # Connect VR controllers
     await api.connect_vr_controller()
