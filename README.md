@@ -83,9 +83,6 @@ async def main():
         await api.disconnect_vr_controller()
         await api.disconnect_camera_streamer()
 
-        if visualizer:
-            visualizer.close()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
