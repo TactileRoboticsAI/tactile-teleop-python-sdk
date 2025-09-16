@@ -25,35 +25,23 @@ class TransformVisualizer:
         if not MESHCAT_AVAILABLE:
             raise ImportError("meshcat is required for visualization. Install with: pip install meshcat")
 
-        # Create visualizer without specifying zmq_url to use default
         self.vis = meshcat.Visualizer()
+        self.vis.open()
+        self._init_camera_view()
 
-        # Clear any existing objects
-        self.vis.delete()
-
-        # self.vis["/Cameras/default"].set_transform(tf.translation_matrix([2, 2, 2]).dot(tf.euler_matrix(0, 0.5, 0.8)))
-        # Set up the scene
-        # self._setup_scene()
-
-        # Open browser in a separate thread to avoid blocking
-        def open_browser_delayed():
-            time.sleep(0.5)  # Give server time to start
-            try:
-                self.vis.open()
-            except Exception as e:
-                print(f"Could not auto-open browser: {e}")
-
-        threading.Thread(target=open_browser_delayed, daemon=True).start()
-
-        print(f"🌐 Meshcat visualizer started at: {self.vis.url()}")
+    def _init_camera_view(self):
+        path = "/Cameras/default/rotated/<object>"
+        v = list([-1, -0.1, 1])
+        v[1], v[2] = v[2], -v[1]  # convert to left-handed (x,z,-y)
+        self.vis[path].set_property("position", v)
 
     def _create_coordinate_frame(self, name: str, scale: float = 0.1) -> None:
         """Create a coordinate frame visualization."""
         # X axis (red) - rotate 90 degrees around Z to point along X
-        if name == "left_controller":
-            y_offset = -scale / 2
-        elif name == "right_controller":
-            y_offset = scale / 2
+        if name == "right_controller":
+            y_offset = -scale
+        elif name == "left_controller":
+            y_offset = scale
 
         self.vis[f"/{name}/x_axis"].set_object(
             g.Cylinder(height=scale, radius=scale / 20), g.MeshLambertMaterial(color=0xFF0000)
@@ -117,11 +105,11 @@ class TransformVisualizer:
         # Update the transform
         self.vis[f"/{name}"].set_transform(transform)
 
-    def update_vr_controllers(
+    def update_visualization(
         self,
         left_transform: Optional[np.ndarray] = None,
         right_transform: Optional[np.ndarray] = None,
-        scale: float = 0.1,
+        scale: float = 0.15,
     ):
         """
         Update VR controller visualizations.
@@ -136,35 +124,3 @@ class TransformVisualizer:
 
         if right_transform is not None:
             self.update_transform("right_controller", right_transform, scale)
-
-    def clear_frame(self, name: str):
-        """Remove a coordinate frame from the visualization."""
-        self.vis[f"/{name}"].delete()
-
-    def clear_all(self):
-        """Clear all visualizations except the grid."""
-        self.vis.delete()
-        self._setup_scene()
-
-    def close(self):
-        """Close the visualizer."""
-        # Meshcat doesn't have a direct close method, but we can delete everything
-        self.vis.delete()
-
-
-# Convenience function for quick usage
-def create_visualizer() -> Optional[TransformVisualizer]:
-    """
-    Create a TransformVisualizer instance.
-
-    Returns:
-        TransformVisualizer instance or None if meshcat is not available
-    """
-    try:
-        return TransformVisualizer()
-    except ImportError:
-        print("Warning: Cannot create visualizer. Install meshcat with: pip install meshcat")
-        return None
-    except Exception as e:
-        print(f"Warning: Could not create visualizer: {e}")
-        return None

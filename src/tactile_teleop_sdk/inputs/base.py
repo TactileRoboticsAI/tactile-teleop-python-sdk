@@ -11,8 +11,6 @@ from typing import Optional
 
 import numpy as np
 
-from tactile_teleop_sdk.utils.geometry import convert_to_robot_convention
-
 logger = logging.getLogger(__name__)
 
 
@@ -120,9 +118,8 @@ class BaseInputProvider(ABC):
                 raise ValueError(f"Unknown event type: {vr_goal.event_type}")
 
         if last_grip_active_vr_goal is not None:
-            # TODO: Make sure this is general and not just for the piper arm
-            vr_reference_transform = convert_to_robot_convention(last_grip_active_vr_goal.origin_transform)  # type: ignore
-            vr_target_transform = convert_to_robot_convention(last_grip_active_vr_goal.target_transform)  # type: ignore
+            vr_reference_transform = last_grip_active_vr_goal.origin_transform  # type: ignore
+            vr_target_transform = last_grip_active_vr_goal.target_transform  # type: ignore
             relative_transform = np.linalg.inv(vr_reference_transform) @ vr_target_transform
             arm_goal.relative_transform = relative_transform
 
