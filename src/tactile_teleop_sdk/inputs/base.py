@@ -121,6 +121,13 @@ class BaseInputProvider(ABC):
             vr_reference_transform = last_grip_active_vr_goal.origin_transform  # type: ignore
             vr_target_transform = last_grip_active_vr_goal.target_transform  # type: ignore
             relative_transform = np.linalg.inv(vr_reference_transform) @ vr_target_transform
+
+            # Coordinate transform to global VR frame
+            transformation_matrix = np.eye(4)
+            transformation_matrix[:3, :3] = vr_reference_transform[:3, :3]
+
+            relative_transform = transformation_matrix @ (relative_transform @ np.linalg.inv(transformation_matrix))
+
             arm_goal.relative_transform = relative_transform
 
         arm_goal.gripper_closed = self.left_gripper_closed if arm == "left" else self.right_gripper_closed
