@@ -7,6 +7,7 @@ from typing import Dict
 import numpy as np
 from livekit import rtc
 
+from tactile_teleop_sdk.config import TactileTeleopConfig
 from tactile_teleop_sdk.inputs.base import BaseInputProvider, EventType, VRControllerGoal
 from tactile_teleop_sdk.utils.geometry import pose2transform
 
@@ -31,12 +32,12 @@ class VRControllerState:
 
 class VRController(BaseInputProvider):
     def __init__(self):
-        super().__init__()
+        super().__init__(self)
         self.left_controller = VRControllerState(hand="left")
         self.right_controller = VRControllerState(hand="right")
         self._data_tasks: set[asyncio.Task] = set()
-
-    async def start(self, room_name: str, participant_identity: str, token: str, livekit_url: str):
+        
+    async def connect(self, room_name: str, participant_identity: str, token: str, livekit_url: str):
         """Start the VR controller."""
         self.room = rtc.Room()
 
@@ -78,7 +79,7 @@ class VRController(BaseInputProvider):
             logger.error(f"Failed to connect to LiveKit: {e}")
             return
 
-    async def stop(self):
+    async def disconnect(self):
         """Gracefully stop the input provider and cancel outstanding tasks."""
         logger.info("(VRControllerInputProvider) Disconnecting from LiveKit room")
 

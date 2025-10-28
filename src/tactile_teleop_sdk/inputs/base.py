@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Optional
 
 import numpy as np
+from tactile_teleop_sdk.config import TactileTeleopConfig
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,8 @@ class ArmGoal:
 class BaseInputProvider(ABC):
     """Abstract base class for input providers."""
 
-    def __init__(self):
+    def __init__(self, config: TactileTeleopConfig):
+        self.config = config
         self.left_queue = asyncio.Queue()
         self.right_queue = asyncio.Queue()
         self.left_gripper_closed = True
