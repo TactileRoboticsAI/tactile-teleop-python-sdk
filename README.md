@@ -31,6 +31,11 @@ uv sync
 
 Visit [teleop.tactilerobotics.ai](https://teleop.tactilerobotics.ai), register and create a new robot. Save the automatically generated API key.
 
+### Key Concept
+The robot API key authorizes you (anyone) to control your robot, once it is ready to be operated. 
+The robot API key gets generated from the webserver (supabase backend) and it associated to a specific user.
+A user can only operate a robot that has the same robot API key as associated to its account. 
+
 ### Minimal Example
 
 ```python
