@@ -8,6 +8,7 @@ class TeleopConfig:
     protocol: str = "webrtc"
     stream_camera: bool = True
     ttl_minutes: int = 120
+    gripper_type: Literal["parallel", "hand"] = "parallel"
 
 class MonoCameraConfig:
     frame_height: int

@@ -1,4 +1,6 @@
+from ast import Dict
 import asyncio
+import json
 import logging
 from abc import abstractmethod
 
@@ -31,9 +33,21 @@ class LivekitSubscriberNode(BaseSubscriberNode):
         self._data_tasks: set[asyncio.Task] = set()
         
     @abstractmethod
-    async def _handle_data_packet(self, packet: rtc.DataPacket) -> None:
-        """Handle data packet coming from LiveKit data channel"""
+    async def _process_data(self, data: Dict):
+        """Process incoming data."""
         pass
+
+    async def _handle_data_packet(self, packet: rtc.DataPacket) -> None:
+        """Handle data packet coming from LiveKit."""
+        try:
+            payload = json.loads(packet.data.decode("utf-8"))
+            await self._process_data(payload)
+        except json.JSONDecodeError:
+            logger.warning(f"Received non-JSON message: {packet.data}")
+            return
+        except Exception as e:
+            logger.error(f"Error processing data: {e}")
+            return
     
     async def connect(self) -> None:
         """Connect to LiveKit room as a subscriber"""
