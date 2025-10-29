@@ -35,6 +35,7 @@ class BasePublisherNode(ABC):
 # Protocol Registry
 _PROTOCOL_REGISTRY: Dict[str, Type[BasePublisherNode]] = {}
 
+
 def register_protocol(protocol_name: str):
     """Decorator to register protocol implementations"""
     def decorator(cls: Type[BasePublisherNode]):

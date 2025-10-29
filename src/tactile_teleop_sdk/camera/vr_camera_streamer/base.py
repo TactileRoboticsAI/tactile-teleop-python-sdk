@@ -19,8 +19,7 @@ class CameraSettings(BaseModel):
 
 class BaseVRCameraStreamer(ABC):
     """
-    Domain-specific abstraction for VR camera streaming.
-    Composes a protocol-specific publisher node for connection management.
+    (stereo) camera streamer to VR headset/display.
     """
     
     def __init__(
@@ -30,12 +29,11 @@ class BaseVRCameraStreamer(ABC):
     ):
         self.camera_settings = camera_settings
         self.connection_config = connection_config
-        
         self.node_id = "vr_camera_streamer"
         self.publisher: BasePublisherNode | None = None
     
     async def connect(self) -> None:
-        """Initialize publisher and establish connection using factory"""
+        """Initialize publisher and establish connection"""
         self.publisher = create_publisher(self.node_id, self.connection_config)
         await self.publisher.connect()
     

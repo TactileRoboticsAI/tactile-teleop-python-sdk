@@ -7,7 +7,7 @@ from typing import Dict
 import numpy as np
 from livekit import rtc
 
-from tactile_teleop_sdk.config import TactileTeleopConfig
+from tactile_teleop_sdk.config import TeleopConfig
 from tactile_teleop_sdk.inputs.base import BaseInputProvider, EventType, VRControllerGoal
 from tactile_teleop_sdk.utils.geometry import pose2transform
 
@@ -64,7 +64,7 @@ class VRController(BaseInputProvider):
         try:
             await self.room.connect(livekit_url, token)
             logger.info(
-                f"(VRControllerInputProvider) ✅ Connected to LiveKit room {room_name} as {participant_identity}"
+                f"(VRControllerInputProvider) ✅ Connected to LiveKit room {room_name} as node {participant_identity}"
             )
 
             # Add connection state debugging

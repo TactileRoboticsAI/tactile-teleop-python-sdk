@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Optional
 
 import numpy as np
-from tactile_teleop_sdk.config import TactileTeleopConfig
+from tactile_teleop_sdk.config import TeleopConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,22 +52,12 @@ class ArmGoal:
 class BaseInputProvider(ABC):
     """Abstract base class for input providers."""
 
-    def __init__(self, config: TactileTeleopConfig):
+    def __init__(self, config: TeleopConfig):
         self.config = config
         self.left_queue = asyncio.Queue()
         self.right_queue = asyncio.Queue()
         self.left_gripper_closed = True
         self.right_gripper_closed = True
-
-    @abstractmethod
-    async def start(self, *args, **kwargs):
-        """Start the input provider."""
-        pass
-
-    @abstractmethod
-    async def stop(self, *args, **kwargs):
-        """Stop the input provider."""
-        pass
 
     async def send_goal(self, goal: VRControllerGoal):
         """Send a control goal."""
