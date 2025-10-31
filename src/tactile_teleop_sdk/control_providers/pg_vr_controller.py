@@ -1,12 +1,12 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from enum import Enum
 
 import numpy as np
 
 from tactile_teleop_sdk.control_providers.base import BaseControlProvider
-from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
+from tactile_teleop_sdk.config import TeleopConfig
 from tactile_teleop_sdk.utils.geometry import pose2transform
 
 logger = logging.getLogger(__name__)
@@ -57,8 +57,15 @@ class VRControllerRobotCommand:
     gripper_closed: Optional[bool] = None
     
 
-class ParallelGripperVRController(BaseControlProvider, BaseSubscriberNode):
-    def __init__(self):
+class ParallelGripperVRController(BaseControlProvider):
+    """Control provider for VR controllers with parallel grippers.
+    
+    Processes VR controller data and generates robot control goals.
+    Uses composition pattern - transport layer is handled by separate subscriber node.
+    """
+    
+    def __init__(self, config: TeleopConfig, component_ids: List[str] = ["left", "right"]):
+        super().__init__(config, component_ids)
         self.left_controller = VRControllerState(hand="left")
         self.right_controller = VRControllerState(hand="right")
         self.left_gripper_closed = True
@@ -115,9 +122,11 @@ class ParallelGripperVRController(BaseControlProvider, BaseSubscriberNode):
         arm_goal.gripper_closed = self.left_gripper_closed if component_id == "left" else self.right_gripper_closed
         return arm_goal
     
-    # Implementation of abstract method of the BaseSubscriberNode
-    async def _process_data(self, data: Dict):
-        """Process incoming VR controller data."""
+    async def process_vr_data(self, data: Dict):
+        """Process incoming VR controller data.
+        
+        This method should be registered as callback with subscriber node.
+        """
         left_data = data.get("leftController", {})
         right_data = data.get("rightController", {})
 
@@ -167,7 +176,6 @@ class ParallelGripperVRController(BaseControlProvider, BaseSubscriberNode):
         if data.get("resetEvent"):
             await self._handle_reset_button_release(hand)
             return
-    # End of abstract method implementations
 
     async def _process_single_controller(self, hand: str, data: Dict):
         """Process data for a single controller."""

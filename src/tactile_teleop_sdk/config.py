@@ -5,10 +5,12 @@ from typing import Literal, Union
 @dataclass
 class TeleopConfig:
     api_key: str
-    protocol: str = "webrtc"
+    protocol: str = "livekit"
     stream_camera: bool = True
     ttl_minutes: int = 120
     gripper_type: Literal["parallel", "hand"] = "parallel"
+    backend_url: str = "https://localhost:8443/"
+    auth_endpoint: str = "api/robot/auth-node"
 
 class MonoCameraConfig:
     frame_height: int

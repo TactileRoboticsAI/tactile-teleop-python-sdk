@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Type
+from typing import Dict, Type, Callable, Awaitable, Optional
 from pydantic import BaseModel
 
 
@@ -15,6 +15,11 @@ class BaseSubscriberNode(ABC):
     def __init__(self, node_id: str, connection_config: BaseConnectionConfig):
         self.node_id = node_id
         self.connection_config = connection_config
+        self._data_callback: Optional[Callable[[Dict], Awaitable[None]]] = None
+    
+    def register_data_callback(self, callback: Callable[[Dict], Awaitable[None]]) -> None:
+        """Register callback to process incoming data"""
+        self._data_callback = callback
     
     @abstractmethod
     async def connect(self) -> None:

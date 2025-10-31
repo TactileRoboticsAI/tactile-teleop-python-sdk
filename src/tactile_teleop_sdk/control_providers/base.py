@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 class BaseControlProvider(ABC):
     """Abstract base class for control providers."""
 
-    def __init__(self, config: TeleopConfig):
+    def __init__(self, config: TeleopConfig, component_ids: List[str]):
         self.config = config
-        self.queues = {}
+        self.queues: dict[str, asyncio.Queue] = {}
+        self._create_queues(component_ids)
         
     @abstractmethod
     def _process_operator_data_queue(self, operator_data_queue: list, component_id: str) -> Any:
@@ -35,10 +36,13 @@ class BaseControlProvider(ABC):
     async def send_control_goal(self, goal):
         """Send a control goal and add it to the queue"""
         try:
-            self.queues[goal.component_id].put(goal)
-        except Exception:
-            # Handle queue full or other errors
-            pass
+            self.queues[goal.component_id].put_nowait(goal)
+        except asyncio.QueueFull:
+            logger.warning(f"Queue full for component {goal.component_id}")
+        except KeyError:
+            logger.error(f"No queue found for component {goal.component_id}")
+        except Exception as e:
+            logger.error(f"Error sending control goal: {e}")
 
     def get_control_goal(self, component_id: str) -> Any:
         """Get a control goal from the queue."""

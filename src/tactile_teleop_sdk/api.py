@@ -182,10 +182,10 @@ class TeleopAPI:
                 - reset_reference: True if the Grip button is activated, otherwise False.
                                    Sets the VR reference frame to the current frame.
         """
-        if not self.vr_controller:
+        if not self.pg_vr_controller:
             raise ValueError("VR controller not connected")
         await asyncio.sleep(0.001)
-        return self.vr_controller.get_controller_goal(arm)
+        return self.pg_vr_controller.get_controller_goal(arm)
     
     
     # additional subscriber and publisher node methods so you can do anything you want! (super extendible)
