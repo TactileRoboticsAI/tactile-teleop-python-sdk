@@ -6,27 +6,30 @@ from livekit import rtc
 
 from tactile_teleop_sdk.subscriber_node.base import (
     BaseSubscriberNode,
-    BaseConnectionConfig,
     register_protocol,
+)
+from tactile_teleop_sdk.protocol_auth import (
+    BaseProtocolAuthConfig,
+    register_protocol_auth_config,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class LivekitSubscriberConnectionConfig(BaseConnectionConfig):
+@register_protocol_auth_config("livekit")
+class LivekitSubscriberAuthConfig(BaseProtocolAuthConfig):
     protocol: str = "livekit"
-    livekit_url: str
+    server_url: str
     token: str
-    participant_identity: str
 
 
 @register_protocol("livekit")
 class LivekitSubscriberNode(BaseSubscriberNode):
     """LiveKit implementation of subscriber node"""
     
-    def __init__(self, node_id: str, connection_config: LivekitSubscriberConnectionConfig):
-        super().__init__(node_id, connection_config)
-        self.connection_config: LivekitSubscriberConnectionConfig = connection_config
+    def __init__(self, node_id: str, protocol_auth_config: LivekitSubscriberAuthConfig):
+        super().__init__(node_id, protocol_auth_config)
+        self.protocol_auth_config: LivekitSubscriberAuthConfig = protocol_auth_config
         self.room: rtc.Room | None = None
         self._data_tasks: set[asyncio.Task] = set()
 
@@ -69,12 +72,12 @@ class LivekitSubscriberNode(BaseSubscriberNode):
             
         try:
             await self.room.connect(
-                self.connection_config.livekit_url,
-                self.connection_config.token
+                self.protocol_auth_config.server_url,
+                self.protocol_auth_config.token
             )
             
             # Log connection state
-            logger.debug(f"✅ Connected to LiveKit room {self.connection_config.room_name} as node {self.node_id}")
+            logger.debug(f"✅ Connected to LiveKit room {self.protocol_auth_config.room_name} as node {self.node_id}")
             logger.debug(f"🔍 Room connection state: {self.room.connection_state}")
             logger.debug(f"🔍 Local node (should = {self.node_id}): {self.room.local_participant.identity}")
             logger.debug(f"📊 Remote room nodes: {len(self.room.remote_participants)}")

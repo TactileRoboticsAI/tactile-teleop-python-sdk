@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from tactile_teleop_sdk.publisher_node.base import (
     BasePublisherNode,
-    BaseConnectionConfig,
+    BaseProtocolAuthConfig,
     create_publisher,
 )
 
@@ -17,7 +17,7 @@ class CameraSettings(BaseModel):
     max_bitrate: int = 3_000_000
 
 
-class BaseVRCameraStreamer(ABC):
+class BaseCameraPublisher(ABC):
     """
     (stereo) camera streamer to VR headset/display.
     """
@@ -25,16 +25,16 @@ class BaseVRCameraStreamer(ABC):
     def __init__(
         self,
         camera_settings: CameraSettings,
-        connection_config: BaseConnectionConfig
+        protocol_auth_config: BaseProtocolAuthConfig
     ):
         self.camera_settings = camera_settings
-        self.connection_config = connection_config
+        self.protocol_auth_config = protocol_auth_config
         self.node_id = "vr_camera_streamer"
         self.publisher: BasePublisherNode | None = None
     
     async def connect(self) -> None:
         """Initialize publisher and establish connection"""
-        self.publisher = create_publisher(self.node_id, self.connection_config)
+        self.publisher = create_publisher(self.node_id, self.protocol_auth_config)
         await self.publisher.connect()
     
     async def disconnect(self) -> None:

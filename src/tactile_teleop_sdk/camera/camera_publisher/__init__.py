@@ -6,7 +6,7 @@ Currently supports LiveKit for low-latency video streaming.
 """
 
 from tactile_teleop_sdk.camera.vr_camera_streamer.base import (
-    BaseVRCameraStreamer,
+    BaseCameraPublisher,
     CameraSettings,
 )
 from tactile_teleop_sdk.camera.vr_camera_streamer.livekit import (
@@ -14,7 +14,7 @@ from tactile_teleop_sdk.camera.vr_camera_streamer.livekit import (
 )
 
 __all__ = [
-    "BaseVRCameraStreamer",
+    "BaseCameraPublisher",
     "CameraSettings",
     "LivekitVRCameraStreamer",
 ]

@@ -3,26 +3,25 @@ import logging
 import numpy as np
 from livekit import rtc
 
-from tactile_teleop_sdk.camera.vr_camera_streamer.base import (
-    BaseVRCameraStreamer,
+from tactile_teleop_sdk.camera.camera_publisher.base import (
+    BaseCameraPublisher,
     CameraSettings,
 )
-from tactile_teleop_sdk.publisher_node.livekit import LivekitPublisherConnectionConfig
+from tactile_teleop_sdk.publisher_node.livekit import LivekitPublisherAuthConfig
 
 logger = logging.getLogger(__name__)
 
 
-class LivekitVRCameraStreamer(BaseVRCameraStreamer):
+class LivekitVRCameraStreamer(BaseCameraPublisher):
     """LiveKit implementation of VR camera streamer"""
     
     def __init__(
         self,
         camera_settings: CameraSettings,
-        connection_config: LivekitPublisherConnectionConfig,
+        protocol_auth_config: LivekitPublisherAuthConfig,
         track_name: str = "robot0-birds-eye",
     ):
-        super().__init__(camera_settings, connection_config)
-        self.connection_config: LivekitPublisherConnectionConfig = connection_config
+        self.camera_settings = camera_settings
         self.track_name = track_name
         
         # Stereo width (2x for side-by-side)
@@ -31,6 +30,13 @@ class LivekitVRCameraStreamer(BaseVRCameraStreamer):
         
         # Initialize LiveKit video source and track
         self._init_video_track()
+        
+        # Inject track into auth config
+        protocol_auth_config.track = self.track
+        protocol_auth_config.track_publish_options = self.options
+        
+        # Initialize base with LiveKit config containing track
+        super().__init__(camera_settings, protocol_auth_config)
     
     
     def _init_video_track(self) -> None:
@@ -46,10 +52,6 @@ class LivekitVRCameraStreamer(BaseVRCameraStreamer):
             ),
             video_codec=rtc.VideoCodec.H264,
         )
-        
-        # Inject track into connection config for publisher
-        self.connection_config.track = self.track
-        self.connection_config.track_publish_options = self.options
     
     
     async def send_stereo_frame(self, frame: np.ndarray) -> None:

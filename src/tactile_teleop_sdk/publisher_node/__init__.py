@@ -8,7 +8,7 @@ Supports multiple protocols via registry pattern:
 
 from tactile_teleop_sdk.publisher_node.base import (
     BasePublisherNode,
-    BaseConnectionConfig,
+    BaseProtocolAuthConfig,
     create_publisher,
     register_protocol,
 )
@@ -16,14 +16,14 @@ from tactile_teleop_sdk.publisher_node.base import (
 # Import protocol implementations to trigger registration
 from tactile_teleop_sdk.publisher_node.livekit import (
     LivekitPublisherNode,
-    LivekitPublisherConnectionConfig,
+    LivekitPublisherAuthConfig,
 )
 
 __all__ = [
     "BasePublisherNode",
-    "BaseConnectionConfig",
+    "BaseProtocolAuthConfig",
     "create_publisher",
     "register_protocol",
     "LivekitPublisherNode",
-    "LivekitPublisherConnectionConfig",
+    "LivekitPublisherAuthConfig",
 ]
