@@ -1,4 +1,3 @@
-import os
 import asyncio
 import logging
 
@@ -10,7 +9,7 @@ from dotenv import load_dotenv
 
 from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher, CameraSettings
 from tactile_teleop_sdk.camera.camera_publisher.livekit import LivekitVRCameraStreamer
-from tactile_teleop_sdk.config import AuthConfig, ProtocolConfig, TactileServerConfig, ControlSubscriberConfig, CameraPublisherConfig
+from tactile_teleop_sdk.config import AuthConfig, ProtocolConfig, TactileServerConfig, ControlSubscriberConfig, CameraPublisherConfig, MonoCameraConfig, StereoCameraConfig
 from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber, create_control_subscriber
 from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode, create_subscriber
 from tactile_teleop_sdk.publisher_node.base import BasePublisherNode, create_publisher
@@ -33,31 +32,30 @@ class TeleopAPI:
     def __init__(
         self, 
         tactile_auth_config: AuthConfig, 
-        protocol_config: Optional[ProtocolConfig] = None,
-        control_subscriber_config: Optional[ControlSubscriberConfig] = None,
-        camera_publisher_config: Optional[CameraPublisherConfig] = None
-    ):
+        protocol_config: Optional[ProtocolConfig] = None):
         """
         Initialize the TactileAPI
         
         Args:
             tactile_auth_config: Authentication configuration
             protocol_config: Protocol configuration (defaults to ProtocolConfig())
-            control_subscriber_config: Optional control subscriber configuration
-            camera_publisher_config: Optional camera publisher configuration
         """
+        # Auth and Protocol Configurations
         self.tactile_auth_config = tactile_auth_config
-        self.tactile_server_config = TactileServerConfig()
         self.protocol_config = protocol_config or ProtocolConfig()
-        self.control_subscriber_config = control_subscriber_config
-        self.camera_publisher_config = camera_publisher_config
+        self.tactile_server_config = TactileServerConfig()
+        
+        # Configuring Control Subscriber
+        
+        
+        # Configuring Camera Publisher
+        
+        
         self.operator_connected = False
         
         # Node instances (lazily initialized)
-        self._control_subscriber: Optional[BaseControlSubscriber] = None
-        self._camera_publisher: Optional[BaseCameraPublisher] = None
-        self._custom_subscribers: dict[str, BaseSubscriberNode] = {}
-        self._custom_publishers: dict[str, BasePublisherNode] = {}
+        self._subscribers: dict[str, BaseSubscriberNode] = {}
+        self._publishers: dict[str, BasePublisherNode] = {}
         
         
     async def _auth_node(self, node_id: str, node_role: Literal["subscriber", "publisher"]) -> AuthNodeResponse:
@@ -117,41 +115,31 @@ class TeleopAPI:
         Returns:
             The connected node instance
         """
+        # Select cache based on role
+        cache = self._subscribers if node_role == "subscriber" else self._publishers
         
+        # Check if already connected
+        if node_id in cache:
+            return cache[node_id]
         
-        
-        
-        
+        # Authenticate and create protocol auth config
         auth_response = await self._auth_node(node_id, node_role)
         protocol_auth_config = self._create_protocol_auth_config(auth_response)
         
+        # Create node via factory
         node = factory(protocol_auth_config)
+        
+        # Connect node
         await node.connect()
         
-        logging.info(f"✅ Node '{node_id}' connected successfully")
+        # Cache and return
+        cache[node_id] = node
+        logging.info(f"✅ Node '{node_id}' ({node_role}) connected successfully")
         return node
 
-    
-    async def _ensure_camera_publisher(self) -> BaseCameraPublisher:
-        """Lazily initialize and connect camera publisher"""
-        if self._camera_publisher is not None:
-            return self._camera_publisher
-        
-        if self.camera_publisher_config is None:
-            raise ValueError("Camera publisher not configured")
-        
-        camera_settings = CameraSettings(
-            height=self.camera_publisher_config.camera_config.frame_height,
-            width=self.camera_publisher_config.camera_config.frame_width
-        )
-        
-        self._camera_publisher = await self._ensure_node_connected(
-            node_id=self.camera_publisher_config.node_id,
-            node_role="publisher",
-            factory=lambda cfg: LivekitVRCameraStreamer(camera_settings, cfg)
-        )
-        return self._camera_publisher
-    
+
+
+
     
 
         
@@ -199,31 +187,21 @@ class TeleopAPI:
     
         
     async def disconnect_robot(self):
+        """Disconnect all connected nodes (subscribers and publishers)"""
+        # Disconnect all subscribers
+        for node in self._subscribers.values():
+            await node.disconnect()
+        self._subscribers.clear()
         
-        # disconnect from all the nodes that are connected
+        # Disconnect all publishers
+        for node in self._publishers.values():
+            await node.disconnect()
+        self._publishers.clear()
         
+        self.operator_connected = False
+        logging.info("✅ All nodes disconnected")
         
-    async def _connect_node(self, node_instance: BaseSubscriberNode | BasePublisherNode, node_id: str, node_role: Literal["subscriber", "publisher"]):
-        
-        auth_response = await self._auth_node(node_id, node_role)
-        
-        # Example for camera publisher:
-        self.camera_streamer = BaseCameraPublisher(CameraSettings(height=height, width=width), self.connection_config)
-    
-        
-        
-        
-    async def disconnect_node(self):
-        # For the control subscribe:
-        if not self.control_subscriber:
-            return
-        await self.vr_controller.stop()
-        
-        if not self.camera_streamer:
-            return
-        await self.camera_streamer.stop()
-        
-    
+
     
 
     async def get_controller_goal(self, component_id: str) -> Any:
@@ -238,23 +216,35 @@ class TeleopAPI:
         Raises:
             ValueError: If control subscriber is not configured
         """
-        if self._control_subscriber is not None:
-            return self._control_subscriber
-        
-        if self.control_subscriber_config is None:
-            raise ValueError("Control subscriber not configured")
         
         self._control_subscriber = await self._ensure_node_connected(
-            node_id=self.control_subscriber_config.node_id or "control_subscriber",
+            node_id=self.control_subscriber_config.node_id,
             node_role="subscriber",
             factory=lambda cfg: create_control_subscriber(
-                self.control_subscriber_config.subscriber_name,
+                self.control_subscriber_config.controller_name,
                 self.control_subscriber_config.component_ids,
                 cfg,
                 self.control_subscriber_config.node_id
             )
         )
         return self._control_subscriber.get_control_goal(component_id)
+    
+        
+    async def _ensure_camera_publisher(self) -> BaseCameraPublisher:
+        """Lazily initialize and connect camera publisher"""
+        if self.camera_publisher_config is None:
+            raise ValueError("Camera publisher not configured")
+        
+        camera_settings = CameraSettings(
+            height=self.camera_publisher_config.camera_config.frame_height,
+            width=self.camera_publisher_config.camera_config.frame_width
+        )
+        
+        return await self._ensure_node_connected(
+            node_id=self.camera_publisher_config.node_id,
+            node_role="publisher",
+            factory=camera_factory
+        )
         
 
     async def send_stereo_frame(self, left_frame: np.ndarray, right_frame: np.ndarray):
@@ -270,7 +260,11 @@ class TeleopAPI:
         if not self.operator_connected:
             return
         
-        camera_publisher = await self._ensure_camera_publisher()
+        camera_publisher = await self._ensure_node_connected(node_id=self.camera_publisher_config.node_id, 
+                                                             node_role="publisher",
+                                                             factory=lambda cfg: create_publisher(self.camera_publisher_config.node_id, cfg))
+            
+            
         frame = np.concatenate([left_frame, right_frame], axis=1)
         await camera_publisher.send_stereo_frame(frame)
         await asyncio.sleep(0.001)
@@ -292,25 +286,7 @@ class TeleopAPI:
         
         
     
-    async def _ensure_custom_subscriber(self, node_id: str) -> BaseSubscriberNode:
-        """Lazily initialize and connect a custom subscriber node"""
-        if node_id not in self._custom_subscribers:
-            self._custom_subscribers[node_id] = await self._ensure_node_connected(
-                node_id=node_id,
-                node_role="subscriber",
-                factory=lambda cfg: create_subscriber(node_id, cfg)
-            )
-        return self._custom_subscribers[node_id]
-    
-    async def _ensure_custom_publisher(self, node_id: str) -> BasePublisherNode:
-        """Lazily initialize and connect a custom publisher node"""
-        if node_id not in self._custom_publishers:
-            self._custom_publishers[node_id] = await self._ensure_node_connected(
-                node_id=node_id,
-                node_role="publisher",
-                factory=lambda cfg: create_publisher(node_id, cfg)
-            )
-        return self._custom_publishers[node_id]
+
 
     
     
@@ -333,7 +309,7 @@ class TeleopAPI:
             # Subscribe to custom sensor data
             sensor_data = await api.get_data("custom_sensor_subscriber")
         """
-        subscriber = await self._ensure_custom_subscriber(node_id)
+        await self._ensure_node_connected(node_id, "subscriber", lambda cfg: create_subscriber(node_id, cfg))
         # Note: Actual data retrieval depends on how the subscriber is configured
         # Users would typically register their own callback via subscriber.register_data_callback()
         # This is a low-level method that gives full control

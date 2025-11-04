@@ -1,5 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
+from typing import Dict, Type
 from pydantic import BaseModel
 
 from tactile_teleop_sdk.publisher_node.base import (
@@ -13,8 +14,8 @@ class CameraSettings(BaseModel):
     """Configuration for camera dimensions and encoding"""
     height: int
     width: int
-    max_framerate: int = 30
-    max_bitrate: int = 3_000_000
+    max_framerate: int
+    max_bitrate: int
 
 
 class BaseCameraPublisher(ABC):
@@ -52,3 +53,30 @@ class BaseCameraPublisher(ABC):
     async def send_stereo_frame(self, frame: np.ndarray) -> None:
         """Send a pre-concatenated stereo frame"""
         pass
+
+
+_CAMERA_PUBLISHER_REGISTRY: Dict[str, Type[BaseCameraPublisher]] = {}
+
+
+def register_camera_publisher(camera_type: str):
+    """Decorator to register camera publisher implementations"""
+    def decorator(cls: Type[BaseCameraPublisher]):
+        _CAMERA_PUBLISHER_REGISTRY[camera_type] = cls
+        return cls
+    return decorator
+
+
+def create_camera_publisher(
+    camera_type: str,
+    camera_settings: CameraSettings,
+    protocol_auth_config: BaseProtocolAuthConfig,
+    **kwargs
+) -> BaseCameraPublisher:
+    """Factory function to create camera publisher instance by type"""
+    publisher_cls = _CAMERA_PUBLISHER_REGISTRY.get(camera_type)
+    if not publisher_cls:
+        raise ValueError(
+            f"Unknown camera publisher: {camera_type}. "
+            f"Available: {list(_CAMERA_PUBLISHER_REGISTRY.keys())}"
+        )
+    return publisher_cls(camera_settings, protocol_auth_config, **kwargs)

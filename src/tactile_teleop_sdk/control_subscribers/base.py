@@ -133,25 +133,25 @@ class BaseControlSubscriber(ABC):
 _CONTROL_SUBSCRIBER_REGISTRY: Dict[str, Type[BaseControlSubscriber]] = {}
 
 
-def register_control_subscriber(subscriber_name: str):
+def register_control_subscriber(controller_name: str):
     """Decorator to register control subscriber implementations"""
     def decorator(cls: Type[BaseControlSubscriber]):
-        _CONTROL_SUBSCRIBER_REGISTRY[subscriber_name] = cls
+        _CONTROL_SUBSCRIBER_REGISTRY[controller_name] = cls
         return cls
     return decorator
 
 
 def create_control_subscriber(
-    subscriber_name: str,
+    controller_name: str,
     component_ids: List[str],
     connection_config: BaseProtocolAuthConfig,
     node_id: Optional[str] = None
 ) -> BaseControlSubscriber:
     """Factory function to create control subscriber instance by name"""
-    subscriber_cls = _CONTROL_SUBSCRIBER_REGISTRY.get(subscriber_name)
+    subscriber_cls = _CONTROL_SUBSCRIBER_REGISTRY.get(controller_name)
     if not subscriber_cls:
         raise ValueError(
-            f"Unknown control subscriber: {subscriber_name}. "
+            f"Unknown control subscriber: {controller_name}. "
             f"Available: {list(_CONTROL_SUBSCRIBER_REGISTRY.keys())}"
         )
     return subscriber_cls(component_ids, connection_config, node_id)

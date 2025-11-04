@@ -1,6 +1,12 @@
 from dataclasses import dataclass
-from typing import Union, List, Optional
+from typing import List
 
+from tactile_teleop_sdk.base_config import NodeConfig
+from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
+
+
+from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber, create_control_subscriber
+from tactile_teleop_sdk.camera.camera_publisher.base import CameraSettings, create_camera_publisher, BaseCameraPublisher
 
 @dataclass
 class AuthConfig:
@@ -14,39 +20,47 @@ class ProtocolConfig:
     ttl_minutes: int = 120
 
 @dataclass
-class TactileServerConfig:
-    backend_url: str = "https://localhost:8443/" #"https://teleop.tactilerobotics.ai"
-    auth_endpoint: str = "/api/robot/auth-node"
-
-
-@dataclass
-class ControlSubscriberConfig:
+class ControlSubscriberConfig(NodeConfig):
     """Configuration for control subscriber"""
-    subscriber_name: str
-    component_ids: List[str]
-    node_id: Optional[str] = None
+    node_id: str = "control_subscriber"
+    controller_name: str = "ParallelGripperVRController"
+    component_ids: List[str] = ["left", "right"]
+    
+    def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseControlSubscriber:
+        
+        return create_control_subscriber(
+            self.controller_name,
+            self.component_ids,
+            protocol_auth_config,
+            node_id=self.node_id
+        )
 
 @dataclass
-class MonoCameraConfig:
-    frame_height: int
-    frame_width: int
-    
-@dataclass
-class StereoCameraConfig:
-    frame_height: int
-    frame_width: int
-    inter_pupillary_distance: float
-    
-CameraConfig = Union[MonoCameraConfig, StereoCameraConfig]
-@dataclass
-class CameraPublisherConfig:
-    """Configuration for camera publisher"""
-    camera_config: CameraConfig
+class CameraPublisherConfig(NodeConfig):
+    """Configuration for camera streaming to operator"""
     node_id: str = "camera_publisher"
-
-
-class LivekitConfig:
-    vr_controller_participant: str = "controllers-processing"
-    camera_participant: str = "camera_streamer"
+    frame_height: int = 480
+    frame_width: int = 640
+    max_framerate: int = 30
+    max_bitrate: int = 3_000_000
+    inter_pupillary_distance: float = 0.064 # set as a quick default now
     
+    def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseCameraPublisher:
+        return create_camera_publisher(
+            camera_type="livekit_vr",
+            camera_settings=CameraSettings(
+                height=self.frame_height,
+                width=self.frame_width,
+                max_framerate=self.max_framerate,
+                max_bitrate=self.max_bitrate
+            ),
+            protocol_auth_config=protocol_auth_config
+        )
 
+
+__all__ = [
+    "AuthConfig",
+    "ProtocolConfig",
+    "ControlSubscriberConfig",
+    "CameraPublisherConfig",
+]

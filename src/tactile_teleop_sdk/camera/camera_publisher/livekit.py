@@ -6,12 +6,14 @@ from livekit import rtc
 from tactile_teleop_sdk.camera.camera_publisher.base import (
     BaseCameraPublisher,
     CameraSettings,
+    register_camera_publisher,
 )
 from tactile_teleop_sdk.publisher_node.livekit import LivekitPublisherAuthConfig
 
 logger = logging.getLogger(__name__)
 
 
+@register_camera_publisher("livekit_vr")
 class LivekitVRCameraStreamer(BaseCameraPublisher):
     """LiveKit implementation of VR camera streamer"""
     
