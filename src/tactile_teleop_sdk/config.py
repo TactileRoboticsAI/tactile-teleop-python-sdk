@@ -1,5 +1,6 @@
+import os
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 from dataclasses import field
 
 from tactile_teleop_sdk.base_config import NodeConfig, TactileServerConfig, RawSubscriberConfig, RawPublisherConfig
@@ -25,7 +26,7 @@ class ControlSubscriberConfig(NodeConfig):
     """Configuration for control subscriber"""
     node_id: str = "control_subscriber"
     controller_name: str = "ParallelGripperVRController"
-    component_ids: List[str] = ["left", "right"]
+    component_ids: List[str] = field(default_factory=lambda: ["left", "right"])
     
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseControlSubscriber:
         
@@ -67,17 +68,32 @@ __all__ = [
 ]
 
 @dataclass
-class TeleopConfig:
+class TactileConfig:
     """"Complete teleop configuration - declare all the node configurations here"""
     auth: AuthConfig
     protocol: ProtocolConfig = field(default_factory=ProtocolConfig)
     server: TactileServerConfig = field(default_factory=TactileServerConfig)
     
     # Optional Specialized Node Configurations
-    control_subscriber: Optional[ControlSubscriberConfig] = None
-    camera_publisher: Optional[CameraPublisherConfig] = None
+    control_subscriber: ControlSubscriberConfig = field(default_factory=ControlSubscriberConfig)
+    camera_publisher: CameraPublisherConfig = field(default_factory=CameraPublisherConfig)
     
     # Optional Custom Node Configurations
     custom_subscribers: List[RawSubscriberConfig] = field(default_factory=list)
     custom_publishers: List[RawPublisherConfig] = field(default_factory=list)
-
+    
+    @classmethod
+    def from_env(cls) -> "TactileConfig":
+        email = os.getenv("TACTILE_EMAIL")
+        robot_id = os.getenv("TACTILE_ROBOT_ID")
+        api_key = os.getenv("TACTILE_API_KEY")
+        if not email or not robot_id or not api_key:
+            raise ValueError("TACTILE_EMAIL, TACTILE_ROBOT_ID, and TACTILE_API_KEY must be set")
+        
+        return cls(
+            auth=AuthConfig(
+                email=email,
+                robot_id=robot_id,
+                api_key=api_key
+            )
+        )

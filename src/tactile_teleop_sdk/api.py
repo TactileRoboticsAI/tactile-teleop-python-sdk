@@ -9,7 +9,7 @@ from typing import Literal, Any
 from dotenv import load_dotenv
 
 from tactile_teleop_sdk.base_config import NodeConfig
-from tactile_teleop_sdk.config import TeleopConfig
+from tactile_teleop_sdk.config import TactileConfig
 from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
 from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
 from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config
@@ -27,14 +27,14 @@ class AuthNodeResponse(BaseModel):
 class OperatorConnectionStatusResponse(BaseModel):
     is_connected: bool
 
-class TeleopAPI:
+class TactileAPI:
     def __init__(
-        self, config: TeleopConfig):
+        self, config: TactileConfig):
         """
         Initialize the TactileAPI
         
         Args:
-            config: Teleop configuration
+            config: Tactile configuration
         """
         # Auth and Protocol Configurations
         self.config = config
