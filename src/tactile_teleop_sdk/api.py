@@ -4,16 +4,13 @@ import logging
 import numpy as np
 import requests
 from pydantic import BaseModel
-from typing import Literal, Optional, Callable, Any
+from typing import Literal, Any
 from dotenv import load_dotenv
 
-from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher, CameraSettings
-from tactile_teleop_sdk.camera.camera_publisher.livekit import LivekitVRCameraStreamer
-from tactile_teleop_sdk.config import AuthConfig, ProtocolConfig, TactileServerConfig, ControlSubscriberConfig, CameraPublisherConfig, MonoCameraConfig, StereoCameraConfig
-from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber, create_control_subscriber
-from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode, create_subscriber
-from tactile_teleop_sdk.publisher_node.base import BasePublisherNode, create_publisher
-from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig, create_protocol_auth_config
+from tactile_teleop_sdk.base_config import TeleopConfig, NodeConfig
+from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
+from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
+from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -30,30 +27,18 @@ class OperatorConnectionStatusResponse(BaseModel):
 
 class TeleopAPI:
     def __init__(
-        self, 
-        tactile_auth_config: AuthConfig, 
-        protocol_config: Optional[ProtocolConfig] = None):
+        self, config: TeleopConfig):
         """
         Initialize the TactileAPI
         
         Args:
-            tactile_auth_config: Authentication configuration
-            protocol_config: Protocol configuration (defaults to ProtocolConfig())
+            config: Teleop configuration
         """
         # Auth and Protocol Configurations
-        self.tactile_auth_config = tactile_auth_config
-        self.protocol_config = protocol_config or ProtocolConfig()
-        self.tactile_server_config = TactileServerConfig()
-        
-        # Configuring Control Subscriber
-        
-        
-        # Configuring Camera Publisher
-        
-        
+        self.config = config
         self.operator_connected = False
         
-        # Node instances (lazily initialized)
+        # Node caches
         self._subscribers: dict[str, BaseSubscriberNode] = {}
         self._publishers: dict[str, BasePublisherNode] = {}
         
@@ -62,16 +47,16 @@ class TeleopAPI:
         """
         Authenticate Robot Node and get Protocol Authentication Token.
         """
-        url = f"{self.tactile_server_config.backend_url}{self.tactile_server_config.auth_endpoint}"
+        url = f"{self.config.server.backend_url}{self.config.server.auth_endpoint}"
 
         payload = {
-            "email": self.tactile_auth_config.email,
-            "robot_id": self.tactile_auth_config.robot_id,
-            "api_key": self.tactile_auth_config.api_key,
-            "protocol": self.protocol_config.protocol,
+            "email": self.config.auth.email,
+            "robot_id": self.config.auth.robot_id,
+            "api_key": self.config.auth.api_key,
+            "protocol": self.config.protocol.protocol,
             "node_id": node_id,
             "node_role": node_role,
-            "ttl_minutes": self.protocol_config.ttl_minutes,
+            "ttl_minutes": self.config.protocol.ttl_minutes,
         }
 
         try:
@@ -87,30 +72,15 @@ class TeleopAPI:
                 except Exception as e:
                     print(f"Error details: {e}")
             raise
-    
-    def _create_protocol_auth_config(self, auth_response: AuthNodeResponse, **kwargs) -> BaseProtocolAuthConfig:
-        """Create protocol-specific connection config from auth response"""
-        return create_protocol_auth_config(
-            protocol=self.protocol_config.protocol,
-            room_name=auth_response.room_name,
-            token=auth_response.token,
-            server_url=auth_response.protocol_server_url,
-            **kwargs
-        )
+        
         
     async def _ensure_node_connected(
         self,
-        node_id: str,
-        node_role: Literal["subscriber", "publisher"],
-        factory: Callable[[BaseProtocolAuthConfig], Any]
+        node_config: NodeConfig,
+        node_role: Literal["subscriber", "publisher"]
     ) -> Any:
         """
-        Core connection logic - factory handles all node type customization.
-        
-        Args:
-            node_id: Unique identifier for the node
-            node_role: "subscriber" or "publisher" 
-            factory: Function that takes protocol_auth_config and returns a node instance
+        Unified connection logic for all node types.
         
         Returns:
             The connected node instance
@@ -119,29 +89,29 @@ class TeleopAPI:
         cache = self._subscribers if node_role == "subscriber" else self._publishers
         
         # Check if already connected
-        if node_id in cache:
-            return cache[node_id]
+        if node_config.node_id in cache:
+            return cache[node_config.node_id]
         
-        # Authenticate and create protocol auth config
-        auth_response = await self._auth_node(node_id, node_role)
-        protocol_auth_config = self._create_protocol_auth_config(auth_response)
+        # Authenticate
+        auth_response = await self._auth_node(node_config.node_id, node_role)
+        protocol_auth_config =  create_protocol_auth_config(
+            protocol=self.config.protocol.protocol,
+            room_name=auth_response.room_name,
+            token=auth_response.token,
+            server_url=auth_response.protocol_server_url,
+        )
         
         # Create node via factory
-        node = factory(protocol_auth_config)
+        node = node_config.create_node(protocol_auth_config)
         
         # Connect node
         await node.connect()
         
         # Cache and return
-        cache[node_id] = node
-        logging.info(f"✅ Node '{node_id}' ({node_role}) connected successfully")
+        cache[node_config.node_id] = node
+        logging.info(f"✅ Node '{node_config.node_id}' ({node_role}) connected successfully")
         return node
-
-
-
-
     
-
         
     async def connect_robot(self, poll_interval: float = 0.1, timeout: float = 300.0):
         """
@@ -156,8 +126,8 @@ class TeleopAPI:
             TimeoutError: If operator doesn't connect within timeout period
             requests.RequestException: If polling request fails
         """
-        url = f"{self.tactile_server_config.backend_url}/api/robot/{self.tactile_auth_config.robot_id}/operator-connected"
-        headers = {"Authorization": f"Bearer {self.tactile_auth_config.api_key}"}
+        url = f"{self.config.server.backend_url}/api/robot/{self.config.auth.robot_id}/operator-connected"
+        headers = {"Authorization": f"Bearer {self.config.auth.api_key}"}
         
         start_time = asyncio.get_event_loop().time()
         
@@ -202,50 +172,18 @@ class TeleopAPI:
         logging.info("✅ All nodes disconnected")
         
 
-    
-
     async def get_controller_goal(self, component_id: str) -> Any:
-        """Get the control goal for a specific component (e.g., arm).
-
-        Args:
-            component_id: The component identifier (e.g., "left", "right")
-
-        Returns:
-            Control goal from the configured control subscriber
-            
-        Raises:
-            ValueError: If control subscriber is not configured
+        """Get the control goal for a specific robot component (e.g. left arm) - auto-connects the control subscriber if not already connected
         """
+        if not self.config.control_subscriber:
+            raise ValueError("Control subscriber not configured")
         
-        self._control_subscriber = await self._ensure_node_connected(
-            node_id=self.control_subscriber_config.node_id,
+        subscriber = await self._ensure_node_connected(
+            node_config=self.config.control_subscriber,
             node_role="subscriber",
-            factory=lambda cfg: create_control_subscriber(
-                self.control_subscriber_config.controller_name,
-                self.control_subscriber_config.component_ids,
-                cfg,
-                self.control_subscriber_config.node_id
-            )
         )
-        return self._control_subscriber.get_control_goal(component_id)
+        return subscriber.get_control_goal(component_id)
     
-        
-    async def _ensure_camera_publisher(self) -> BaseCameraPublisher:
-        """Lazily initialize and connect camera publisher"""
-        if self.camera_publisher_config is None:
-            raise ValueError("Camera publisher not configured")
-        
-        camera_settings = CameraSettings(
-            height=self.camera_publisher_config.camera_config.frame_height,
-            width=self.camera_publisher_config.camera_config.frame_width
-        )
-        
-        return await self._ensure_node_connected(
-            node_id=self.camera_publisher_config.node_id,
-            node_role="publisher",
-            factory=camera_factory
-        )
-        
 
     async def send_stereo_frame(self, left_frame: np.ndarray, right_frame: np.ndarray):
         """Send the left and right frames of a stereo camera to the camera streamer.
@@ -260,14 +198,16 @@ class TeleopAPI:
         if not self.operator_connected:
             return
         
-        camera_publisher = await self._ensure_node_connected(node_id=self.camera_publisher_config.node_id, 
-                                                             node_role="publisher",
-                                                             factory=lambda cfg: create_publisher(self.camera_publisher_config.node_id, cfg))
-            
-            
+        if not self.config.camera_publisher:
+            raise ValueError("Camera publisher not configured")
+        
+        camera_publisher = await self._ensure_node_connected(
+            node_config=self.config.camera_publisher,
+            node_role="publisher",
+        )
         frame = np.concatenate([left_frame, right_frame], axis=1)
         await camera_publisher.send_stereo_frame(frame)
-        await asyncio.sleep(0.001)
+
 
     async def send_single_frame(self, frame: np.ndarray):
         """Send the single frame from a mono camera to the camera streamer.
@@ -281,54 +221,85 @@ class TeleopAPI:
         if not self.operator_connected:
             return
         
-        camera_publisher = await self._ensure_camera_publisher()
+        if not self.config.camera_publisher:    
+            raise ValueError("Camera publisher not configured")
+        
+        camera_publisher = await self._ensure_node_connected(
+            node_config=self.config.camera_publisher,
+            node_role="publisher",
+        )
         await camera_publisher.send_single_frame(frame)
-        
-        
-    
-
-
     
     
     # Custom node methods for fully extensible communication
-    
-    async def get_data(self, node_id: str) -> Optional[dict]:
+    async def get_subscriber(self, node_id: str) -> BaseSubscriberNode:
         """
-        Subscribe to a custom data stream using a raw subscriber node.
+        Get a raw subscriber node for custom data streams - auto-connects if needed.
         
-        This method allows users to create custom data subscriptions beyond
-        the standard control and camera streams.
+        This method allows users to access custom subscriber nodes beyond
+        the standard control subscriber.
         
         Args:
             node_id: Unique identifier for the subscriber node
         
         Returns:
-            Latest data received by the subscriber (implementation-specific)
+            The connected subscriber node instance
+            
+        Raises:
+            ValueError: If no subscriber config found for node_id
             
         Example:
-            # Subscribe to custom sensor data
-            sensor_data = await api.get_data("custom_sensor_subscriber")
+            # Get custom sensor subscriber
+            sensor_sub = await api.get_subscriber("custom_sensor")
+            sensor_sub.register_data_callback(my_callback)
         """
-        await self._ensure_node_connected(node_id, "subscriber", lambda cfg: create_subscriber(node_id, cfg))
-        # Note: Actual data retrieval depends on how the subscriber is configured
-        # Users would typically register their own callback via subscriber.register_data_callback()
-        # This is a low-level method that gives full control
-        return None  # Placeholder - users configure callbacks themselves
-    
-    async def send_data(self, node_id: str, data: Any):
-        """
-        Publish custom data using a raw publisher node.
+        if not self.config.custom_subscribers:
+            raise ValueError("No custom subscribers configured")
         
-        This method allows users to send arbitrary data beyond the standard
-        camera frames.
+        config = next(
+            (c for c in self.config.custom_subscribers if c.node_id == node_id),
+            None
+        )
+        if not config:
+            raise ValueError(
+                f"No subscriber config found for '{node_id}'. "
+                f"Available: {[c.node_id for c in self.config.custom_subscribers]}"
+            )
+        
+        return await self._ensure_node_connected(config, "subscriber")
+    
+    async def get_publisher(self, node_id: str) -> BasePublisherNode:
+        """
+        Get a raw publisher node for custom data streams - auto-connects if needed.
+        
+        This method allows users to access custom publisher nodes beyond
+        the standard camera publisher.
         
         Args:
             node_id: Unique identifier for the publisher node
-            data: Data to send (will be passed to publisher's send_data method)
+        
+        Returns:
+            The connected publisher node instance
+            
+        Raises:
+            ValueError: If no publisher config found for node_id
             
         Example:
-            # Send custom telemetry data
-            await api.send_data("telemetry_publisher", {"speed": 1.5, "battery": 85})
+            # Get custom telemetry publisher
+            telemetry_pub = await api.get_publisher("telemetry")
+            await telemetry_pub.send_data({"speed": 1.5, "battery": 85})
         """
-        publisher = await self._ensure_custom_publisher(node_id)
-        await publisher.send_data(data)
+        if not self.config.custom_publishers:
+            raise ValueError("No custom publishers configured")
+        
+        config = next(
+            (c for c in self.config.custom_publishers if c.node_id == node_id),
+            None
+        )
+        if not config:
+            raise ValueError(
+                f"No publisher config found for '{node_id}'. "
+                f"Available: {[c.node_id for c in self.config.custom_publishers]}"
+            )
+        
+        return await self._ensure_node_connected(config, "publisher")
