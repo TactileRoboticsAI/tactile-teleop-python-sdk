@@ -1,13 +1,15 @@
 import asyncio
 import logging
+import requests #type: ignore
 
 import numpy as np
-import requests
+
 from pydantic import BaseModel
 from typing import Literal, Any
 from dotenv import load_dotenv
 
-from tactile_teleop_sdk.base_config import TeleopConfig, NodeConfig
+from tactile_teleop_sdk.base_config import NodeConfig
+from tactile_teleop_sdk.config import TeleopConfig
 from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
 from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
 from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config

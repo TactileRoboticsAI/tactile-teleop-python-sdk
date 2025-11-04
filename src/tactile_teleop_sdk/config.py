@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+from dataclasses import field
 
-from tactile_teleop_sdk.base_config import NodeConfig
+from tactile_teleop_sdk.base_config import NodeConfig, TactileServerConfig, RawSubscriberConfig, RawPublisherConfig
 from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
 
 
@@ -64,3 +65,19 @@ __all__ = [
     "ControlSubscriberConfig",
     "CameraPublisherConfig",
 ]
+
+@dataclass
+class TeleopConfig:
+    """"Complete teleop configuration - declare all the node configurations here"""
+    auth: AuthConfig
+    protocol: ProtocolConfig = field(default_factory=ProtocolConfig)
+    server: TactileServerConfig = field(default_factory=TactileServerConfig)
+    
+    # Optional Specialized Node Configurations
+    control_subscriber: Optional[ControlSubscriberConfig] = None
+    camera_publisher: Optional[CameraPublisherConfig] = None
+    
+    # Optional Custom Node Configurations
+    custom_subscribers: List[RawSubscriberConfig] = field(default_factory=list)
+    custom_publishers: List[RawPublisherConfig] = field(default_factory=list)
+

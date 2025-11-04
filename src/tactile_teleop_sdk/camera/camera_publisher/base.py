@@ -33,9 +33,13 @@ class BaseCameraPublisher(ABC):
         self.node_id = "vr_camera_streamer"
         self.publisher: BasePublisherNode | None = None
     
-    async def connect(self) -> None:
+    async def connect(self, **publisher_kwargs) -> None:
         """Initialize publisher and establish connection"""
-        self.publisher = create_publisher(self.node_id, self.protocol_auth_config)
+        self.publisher = create_publisher(
+            self.node_id, 
+            self.protocol_auth_config,
+            **publisher_kwargs
+        )
         await self.publisher.connect()
     
     async def disconnect(self) -> None:

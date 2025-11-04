@@ -21,10 +21,9 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
         self,
         camera_settings: CameraSettings,
         protocol_auth_config: LivekitPublisherAuthConfig,
-        track_name: str = "robot0-birds-eye",
     ):
         self.camera_settings = camera_settings
-        self.track_name = track_name
+        self.track_name = "robot0-birds-eye"
         
         # Stereo width (2x for side-by-side)
         self.stereo_width = camera_settings.width * 2
@@ -33,12 +32,11 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
         # Initialize LiveKit video source and track
         self._init_video_track()
         
-        # Inject track into auth config
-        protocol_auth_config.track = self.track
-        protocol_auth_config.track_publish_options = self.options
-        
-        # Initialize base with LiveKit config containing track
         super().__init__(camera_settings, protocol_auth_config)
+    
+    async def connect(self, **publisher_kwargs) -> None:
+        """Initialize publisher with track and establish connection"""
+        await super().connect(track=self.track, track_publish_options=self.options, **publisher_kwargs)
     
     
     def _init_video_track(self) -> None:
@@ -54,7 +52,7 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
             ),
             video_codec=rtc.VideoCodec.H264,
         )
-    
+
     
     async def send_stereo_frame(self, frame: np.ndarray) -> None:
         """Send pre-concatenated stereo frame"""

@@ -9,10 +9,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "dotenv>=0.9.9",
     "livekit>=1.0.12",
     "livekit-api>=1.0.5",
     "pydantic>=2.12.3",
     "requests>=2.32.5",
+    "types-requests>=2.32.4.20250913",
 ]
 
 [tool.setuptools.packages.find]

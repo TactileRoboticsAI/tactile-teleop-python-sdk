@@ -7,7 +7,7 @@ from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
 class BasePublisherNode(ABC):
     """Abstract base for protocol-agnostic publisher nodes"""
     
-    def __init__(self, node_id: str, protocol_auth_config: BaseProtocolAuthConfig):
+    def __init__(self, node_id: str, protocol_auth_config: BaseProtocolAuthConfig, **kwargs):
         self.node_id = node_id
         self.protocol_auth_config = protocol_auth_config
     
@@ -41,7 +41,8 @@ def register_protocol(protocol_name: str):
 
 def create_publisher(
     node_id: str, 
-    protocol_auth_config: BaseProtocolAuthConfig
+    protocol_auth_config: BaseProtocolAuthConfig,
+    **kwargs
 ) -> BasePublisherNode:
     """Factory function to create publisher instance by protocol"""
     protocol_cls = _PROTOCOL_REGISTRY.get(protocol_auth_config.protocol)
@@ -50,4 +51,4 @@ def create_publisher(
             f"Unknown protocol: {protocol_auth_config.protocol}. "
             f"Available: {list(_PROTOCOL_REGISTRY.keys())}"
         )
-    return protocol_cls(node_id, protocol_auth_config)
+    return protocol_cls(node_id, protocol_auth_config, **kwargs)

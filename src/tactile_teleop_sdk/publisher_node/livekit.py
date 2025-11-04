@@ -1,8 +1,8 @@
 import logging
-from typing import Any, Optional
+from typing import Any
+from pydantic import ConfigDict
 
 from livekit import rtc
-from pydantic import Field
 
 from tactile_teleop_sdk.publisher_node.base import (
     BasePublisherNode,
@@ -18,41 +18,48 @@ logger = logging.getLogger(__name__)
 
 @register_protocol_auth_config("livekit")
 class LivekitPublisherAuthConfig(BaseProtocolAuthConfig):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     protocol: str = "livekit"
     server_url: str
     token: str
-    track: Optional[rtc.LocalTrack] = Field(default=None, exclude=True)
-    track_publish_options: Optional[rtc.TrackPublishOptions] = Field(default=None, exclude=True)
-
 
 @register_protocol("livekit")
 class LivekitPublisherNode(BasePublisherNode):
     """LiveKit implementation of publisher node"""
     
-    def __init__(self, node_id: str, protocol_auth_config: LivekitPublisherAuthConfig):
-        super().__init__(node_id, protocol_auth_config)
+    def __init__(
+        self, 
+        node_id: str, 
+        protocol_auth_config: LivekitPublisherAuthConfig,
+        track: rtc.LocalVideoTrack | None = None,
+        track_publish_options: rtc.TrackPublishOptions | None = None,
+        **kwargs
+    ):
+        super().__init__(node_id, protocol_auth_config, **kwargs)
         self.protocol_auth_config: LivekitPublisherAuthConfig = protocol_auth_config
         self.room: rtc.Room | None = None
+        self.track = track
+        self.track_publish_options = track_publish_options
         
     async def _publish_track(self) -> None:
         """Publish the configured track to the room"""
         if not self.room:
             raise RuntimeError("Room not connected")
         
-        if not self.protocol_auth_config.track or not self.protocol_auth_config.track_publish_options:
+        if not self.track or not self.track_publish_options:
             logger.debug(f"({self.node_id}) No track configured, skipping track publish")
             return
             
         try:
             await self.room.local_participant.publish_track(
-                self.protocol_auth_config.track,
-                self.protocol_auth_config.track_publish_options
+                self.track,
+                self.track_publish_options
             )
             logger.debug(f"({self.node_id}) Published track successfully")
         except Exception as e:
             logger.error(f"({self.node_id}) Failed to publish track: {e}", exc_info=True)
             raise
-
+        
     async def connect(self) -> None:
         """Connect to LiveKit room and publish configured track"""
         self.room = rtc.Room()
