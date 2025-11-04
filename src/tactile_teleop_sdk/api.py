@@ -15,6 +15,7 @@ from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
 from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config
 from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber
 from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher
+from tactile_teleop_sdk.control_subscribers.base import BaseControlGoal
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -130,8 +131,7 @@ class TactileAPI:
             TimeoutError: If operator doesn't connect within timeout period
             requests.RequestException: If polling request fails
         """
-        url = f"{self.config.server.backend_url}/api/robot/{self.config.auth.robot_id}/operator-connected"
-        headers = {"Authorization": f"Bearer {self.config.auth.api_key}"}
+        url = f"{self.config.server.backend_url}/api/robot/check-operator-connection"
         
         start_time = asyncio.get_event_loop().time()
         
@@ -141,7 +141,11 @@ class TactileAPI:
                 raise TimeoutError(f"Operator did not connect within {timeout} seconds")
             
             try:
-                response = requests.get(url, headers=headers, timeout=10, verify=False)
+                payload = {
+                    "robot_id": self.config.auth.robot_id,
+                    "api_key": self.config.auth.api_key,
+                }
+                response = requests.post(url, json=payload, timeout=10, verify=False)
                 response.raise_for_status()
                 
                 status_data = OperatorConnectionStatusResponse.model_validate(response.json())
@@ -175,6 +179,7 @@ class TactileAPI:
         self.operator_connected = False
         logging.info("✅ All nodes disconnected")
         
+        
     async def connect_controller(
         self,
         type: Literal["parallel_gripper_vr_controller"] = "parallel_gripper_vr_controller",
@@ -205,7 +210,28 @@ class TactileAPI:
             logging.info(f"✅ Controller '{controller_id}' disconnected")
         else:
             logging.warning(f"Controller '{controller_id}' not found")
+    
+    
+    async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller") -> BaseControlGoal:
+        """
+        Get the control goal for a specific robot component.
         
+        Args:
+            component_id: Component identifier (e.g., "left", "right")
+            controller_id: Controller node identifier (default: "vr_controller")
+            
+        Returns:
+            Control goal for the specified component
+        """
+        if controller_id not in self._subscribers:
+            raise ValueError(
+                f"Controller '{controller_id}' not connected. "
+                f"Call connect_vr_controller(controller_id='{controller_id}') first."
+            )
+        
+        subscriber: BaseControlSubscriber = self._subscribers[controller_id]  # type: ignore
+        return subscriber.get_control_goal(component_id)
+    
     
     async def connect_camera(
         self,
@@ -252,28 +278,7 @@ class TactileAPI:
             logging.info(f"✅ Camera '{camera_id}' disconnected")
         else:
             logging.warning(f"Camera '{camera_id}' not found")
-        
 
-    async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller") -> Any:
-        """
-        Get the control goal for a specific robot component.
-        
-        Args:
-            component_id: Component identifier (e.g., "left", "right")
-            controller_id: Controller node identifier (default: "vr_controller")
-            
-        Returns:
-            Control goal for the specified component
-        """
-        if controller_id not in self._subscribers:
-            raise ValueError(
-                f"Controller '{controller_id}' not connected. "
-                f"Call connect_vr_controller(controller_id='{controller_id}') first."
-            )
-        
-        subscriber: BaseControlSubscriber = self._subscribers[controller_id]  # type: ignore
-        return subscriber.get_control_goal(component_id)
-    
 
     async def send_stereo_frame(
         self, 
@@ -366,6 +371,7 @@ class TactileAPI:
             )
         
         return await self._ensure_node_connected(config, "subscriber")
+    
     
     async def get_publisher(self, node_id: str) -> BasePublisherNode:
         """
