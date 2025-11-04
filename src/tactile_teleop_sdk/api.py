@@ -5,14 +5,16 @@ import requests #type: ignore
 import numpy as np
 
 from pydantic import BaseModel
-from typing import Literal, Any
+from typing import Literal, Any, List   
 from dotenv import load_dotenv
 
-from tactile_teleop_sdk.base_config import NodeConfig
 from tactile_teleop_sdk.config import TactileConfig
+from tactile_teleop_sdk.factory_configs import ControlSubscriberConfig, CameraPublisherConfig, NodeConfig
 from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
 from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
 from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config
+from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber
+from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -173,63 +175,158 @@ class TactileAPI:
         self.operator_connected = False
         logging.info("✅ All nodes disconnected")
         
-
-    async def get_controller_goal(self, component_id: str) -> Any:
-        """Get the control goal for a specific robot component (e.g. left arm) - auto-connects the control subscriber if not already connected
-        """
-        if not self.config.control_subscriber:
-            raise ValueError("Control subscriber not configured")
+    async def connect_controller(
+        self,
+        type: Literal["parallel_gripper_vr_controller"] = "parallel_gripper_vr_controller",
+        robot_components: List[str] = ["left", "right"]) -> BaseControlSubscriber:
         
-        subscriber = await self._ensure_node_connected(
-            node_config=self.config.control_subscriber,
-            node_role="subscriber",
+        if type == "parallel_gripper_vr_controller":
+            config = ControlSubscriberConfig(
+                node_id="vr_controller",
+                controller_name="ParallelGripperVRController",
+                component_ids=robot_components
+            )
+        else:
+            raise ValueError(f"Unknown controller type: {type}")
+        
+        return await self._ensure_node_connected(config, "subscriber")
+    
+    
+    async def disconnect_controller(self, controller_id: str = "vr_controller"):
+        """
+        Disconnect a specific controller.
+        
+        Args:
+            controller_id: Controller node identifier to disconnect
+        """
+        if controller_id in self._subscribers:
+            await self._subscribers[controller_id].disconnect()
+            del self._subscribers[controller_id]
+            logging.info(f"✅ Controller '{controller_id}' disconnected")
+        else:
+            logging.warning(f"Controller '{controller_id}' not found")
+        
+    
+    async def connect_camera(
+        self,
+        camera_name: str = "camera_0",
+        height: int = 480,
+        width: int = 640,
+        max_framerate: int = 30,
+        max_bitrate: int = 3_000_000
+    ) -> BaseCameraPublisher:
+        """
+        Connect a camera streamer to send video to operator.
+        
+        Args:
+            camera_id: Unique identifier for this camera (for multiple cameras)
+            height: Frame height in pixels
+            width: Frame width in pixels
+            max_framerate: Maximum framerate in Hz
+            max_bitrate: Maximum bitrate in bits/s
+            
+        Returns:
+            Connected camera publisher instance
+        """
+        config = CameraPublisherConfig(
+            node_id=f"camera_publisher_{camera_name}",
+            frame_height=height,
+            frame_width=width,
+            max_framerate=max_framerate,
+            max_bitrate=max_bitrate
         )
+        
+        return await self._ensure_node_connected(config, "publisher")
+    
+    
+    async def disconnect_camera(self, camera_id: str = "camera_publisher"):
+        """
+        Disconnect a specific camera streamer.
+        
+        Args:
+            camera_id: Camera publisher node identifier to disconnect
+        """
+        if camera_id in self._publishers:
+            await self._publishers[camera_id].disconnect()
+            del self._publishers[camera_id]
+            logging.info(f"✅ Camera '{camera_id}' disconnected")
+        else:
+            logging.warning(f"Camera '{camera_id}' not found")
+        
+
+    async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller") -> Any:
+        """
+        Get the control goal for a specific robot component.
+        
+        Args:
+            component_id: Component identifier (e.g., "left", "right")
+            controller_id: Controller node identifier (default: "vr_controller")
+            
+        Returns:
+            Control goal for the specified component
+        """
+        if controller_id not in self._subscribers:
+            raise ValueError(
+                f"Controller '{controller_id}' not connected. "
+                f"Call connect_vr_controller(controller_id='{controller_id}') first."
+            )
+        
+        subscriber: BaseControlSubscriber = self._subscribers[controller_id]  # type: ignore
         return subscriber.get_control_goal(component_id)
     
 
-    async def send_stereo_frame(self, left_frame: np.ndarray, right_frame: np.ndarray):
-        """Send the left and right frames of a stereo camera to the camera streamer.
+    async def send_stereo_frame(
+        self, 
+        left_frame: np.ndarray, 
+        right_frame: np.ndarray, 
+        camera_id: str = "camera_publisher"
+    ):
+        """
+        Send stereo frames to operator.
 
         Args:
             left_frame: Left camera frame, shape (height, width, 3)
             right_frame: Right camera frame, shape (height, width, 3)
+            camera_id: Camera publisher node identifier (default: "camera_publisher")
 
         Raises:
-            ValueError: Camera publisher not configured
+            ValueError: Camera publisher not connected
         """
         if not self.operator_connected:
             return
         
-        if not self.config.camera_publisher:
-            raise ValueError("Camera publisher not configured")
+        if camera_id not in self._publishers:
+            raise ValueError(
+                f"Camera '{camera_id}' not connected. "
+                f"Call connect_camera_streamer(camera_id='{camera_id}') first."
+            )
         
-        camera_publisher = await self._ensure_node_connected(
-            node_config=self.config.camera_publisher,
-            node_role="publisher",
-        )
+        camera_publisher: BaseCameraPublisher = self._publishers[camera_id]  # type: ignore
         frame = np.concatenate([left_frame, right_frame], axis=1)
         await camera_publisher.send_stereo_frame(frame)
 
 
-    async def send_single_frame(self, frame: np.ndarray):
-        """Send the single frame from a mono camera to the camera streamer.
+    async def send_single_frame(self, frame: np.ndarray, camera_id: str = "camera_publisher"):
+        """
+        Send single frame to operator.
 
         Args:
-            frame: The single frame, shape (height, width, 3)
+            frame: Single camera frame, shape (height, width, 3)
+            camera_id: Camera publisher node identifier (default: "camera_publisher")
 
         Raises:
-            ValueError: Camera publisher not configured
+            ValueError: Camera publisher not connected
         """
         if not self.operator_connected:
             return
         
-        if not self.config.camera_publisher:    
-            raise ValueError("Camera publisher not configured")
+        if camera_id not in self._publishers:
+            raise ValueError(
+                f"Camera '{camera_id}' not connected. "
+                f"Call connect_camera_streamer(camera_id='{camera_id}') first."
+            )
         
-        camera_publisher = await self._ensure_node_connected(
-            node_config=self.config.camera_publisher,
-            node_role="publisher",
-        )
+        camera_publisher: BaseCameraPublisher = self._publishers[camera_id]  # type: ignore
         await camera_publisher.send_single_frame(frame)
     
     

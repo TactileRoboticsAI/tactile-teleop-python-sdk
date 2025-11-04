@@ -11,27 +11,31 @@ async def main():
     # Connect and wait for operator
     await api.connect_robot(timeout=300.0)
     
+    # Connect VR controller
+    await api.connect_controller(type="parallel_gripper_vr_controller", robot_components=["left", "right"])
+    
+    # Connect camera streamer with custom resolution
+    await api.connect_camera(
+        camera_name="main_camera",
+        height=480,
+        width=640,
+        max_framerate=30,
+        max_bitrate=3_000_000
+    )    
     try:
         # Main control loop
         while True:
             # Get control goals for robot components
-            left_arm_goal = await api.get_controller_goal("left_arm")
-            right_arm_goal = await api.get_controller_goal("right_arm")
+            left_goal = await api.get_controller_goal("left")
+            right_goal = await api.get_controller_goal("right")
             
             # Execute robot control with received goals
             # ... your robot control logic here ...
             
             # Send camera frames back to operator
-            left_frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-            right_frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-            await api.send_stereo_frame(left_frame, right_frame)
-            
-            # Optional: Custom data streams
-            telemetry_pub = await api.get_publisher("telemetry")
-            await telemetry_pub.send_data({"battery": 85, "temp": 42.5})
-            
-            sensor_sub = await api.get_subscriber("custom_sensor")
-            sensor_data = sensor_sub.get_latest_data() # type: ignore
+            left_frame = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
+            right_frame = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
+            await api.send_stereo_frame(left_frame, right_frame, camera_id="main_camera")
             
             await asyncio.sleep(0.01)  # 100Hz control loop
             
