@@ -7,7 +7,6 @@ from tactile_teleop_sdk.base_config import TactileServerConfig
 from tactile_teleop_sdk.factory_configs import RawSubscriberConfig, RawPublisherConfig
 
 class AuthConfig(BaseModel):
-    email: str
     robot_id: str
     api_key: str
 
@@ -41,19 +40,16 @@ class TactileConfig:
             ttl_minutes: Token time-to-live in minutes (default: 120)
         
         Environment variables required:
-            TACTILE_EMAIL: User email
             TACTILE_ROBOT_ID: Robot identifier
             TACTILE_API_KEY: API authentication key
         """
-        email = os.getenv("TACTILE_EMAIL")
         robot_id = os.getenv("TACTILE_ROBOT_ID")
         api_key = os.getenv("TACTILE_API_KEY")
-        if not email or not robot_id or not api_key:
-            raise ValueError("TACTILE_EMAIL, TACTILE_ROBOT_ID, and TACTILE_API_KEY must be set")
+        if not robot_id or not api_key:
+            raise ValueError("TACTILE_ROBOT_ID and TACTILE_API_KEY must be set")
         
         return cls(
             auth=AuthConfig(
-                email=email,
                 robot_id=robot_id,
                 api_key=api_key
             ),

@@ -3,20 +3,22 @@ Base classes and data structures for input providers.
 """
 
 import asyncio
+from dataclasses import dataclass
 import logging
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Dict, Type
-
 from pydantic import BaseModel
 
 from tactile_teleop_sdk.subscriber_node.base import BaseProtocolAuthConfig, BaseSubscriberNode, create_subscriber
 
 logger = logging.getLogger(__name__)
 
+@dataclass  
 class BaseOperatorEvent(BaseModel):
     component_id: str
 
-class BaseControlGoal(BaseModel):  
+@dataclass
+class BaseControlGoal(BaseModel):
     component_id: str
 
 class BaseControlSubscriber(ABC):

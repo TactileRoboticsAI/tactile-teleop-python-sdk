@@ -4,6 +4,7 @@ from typing import Dict, Optional, List
 from enum import Enum
 
 import numpy as np
+from pydantic import ConfigDict
 
 from tactile_teleop_sdk.control_subscribers.base import (
     BaseControlGoal, 
@@ -55,6 +56,8 @@ class VRControllerState:
 @dataclass
 class VRControllerEvent(BaseOperatorEvent):
     """Lower frequency control events coming from the VR Controllers."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     component_id: str = "right"
     event_type: TactileVRControllerEventType = TactileVRControllerEventType.IDLE
     origin_transform: Optional[np.ndarray] = None
@@ -65,6 +68,8 @@ class VRControllerEvent(BaseOperatorEvent):
 @dataclass
 class ParallelGripperControlGoal(BaseControlGoal):
     """Robot control goal for a parallel gripper arm, exposed to the user with the API"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     component_id: str = "right"
     relative_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None

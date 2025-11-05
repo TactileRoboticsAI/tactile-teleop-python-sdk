@@ -55,7 +55,6 @@ class TactileAPI:
         url = f"{self.config.server.backend_url}{self.config.server.auth_endpoint}"
 
         payload = {
-            "email": self.config.auth.email,
             "robot_id": self.config.auth.robot_id,
             "api_key": self.config.auth.api_key,
             "protocol": self.config.protocol.protocol,
@@ -66,7 +65,8 @@ class TactileAPI:
 
         try:
             response = requests.post(url, json=payload, timeout=10, verify=False)
-            return AuthNodeResponse.model_validate_json(response.json())
+            response.raise_for_status()
+            return AuthNodeResponse.model_validate(response.json())
 
         except requests.RequestException as e:
             print(f"❌ Authentication failed: {e}")
