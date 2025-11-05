@@ -265,13 +265,14 @@ class TactileAPI:
         return await self._ensure_node_connected(config, "publisher")
     
     
-    async def disconnect_camera(self, camera_id: str = "camera_publisher"):
+    async def disconnect_camera(self, camera_name: str = "camera_0"):
         """
         Disconnect a specific camera streamer.
         
         Args:
-            camera_id: Camera publisher node identifier to disconnect
+            camera_name: Camera name used when connecting (e.g., "camera_0")
         """
+        camera_id = f"camera_publisher_{camera_name}"
         if camera_id in self._publishers:
             await self._publishers[camera_id].disconnect()
             del self._publishers[camera_id]
@@ -284,7 +285,7 @@ class TactileAPI:
         self, 
         left_frame: np.ndarray, 
         right_frame: np.ndarray, 
-        camera_id: str = "camera_publisher"
+        camera_name: str = "camera_0"
     ):
         """
         Send stereo frames to operator.
@@ -292,7 +293,7 @@ class TactileAPI:
         Args:
             left_frame: Left camera frame, shape (height, width, 3)
             right_frame: Right camera frame, shape (height, width, 3)
-            camera_id: Camera publisher node identifier (default: "camera_publisher")
+            camera_name: Camera name used when connecting (default: "camera_0")
 
         Raises:
             ValueError: Camera publisher not connected
@@ -300,6 +301,7 @@ class TactileAPI:
         if not self.operator_connected:
             return
         
+        camera_id = f"camera_publisher_{camera_name}"
         if camera_id not in self._publishers:
             raise ValueError(
                 f"Camera '{camera_id}' not connected. "
@@ -311,13 +313,13 @@ class TactileAPI:
         await camera_publisher.send_stereo_frame(frame)
 
 
-    async def send_single_frame(self, frame: np.ndarray, camera_id: str = "camera_publisher"):
+    async def send_single_frame(self, frame: np.ndarray, camera_name: str = "camera_0"):
         """
         Send single frame to operator.
 
         Args:
             frame: Single camera frame, shape (height, width, 3)
-            camera_id: Camera publisher node identifier (default: "camera_publisher")
+            camera_name: Camera name used when connecting (default: "camera_0")
 
         Raises:
             ValueError: Camera publisher not connected
@@ -325,6 +327,7 @@ class TactileAPI:
         if not self.operator_connected:
             return
         
+        camera_id = f"camera_publisher_{camera_name}"
         if camera_id not in self._publishers:
             raise ValueError(
                 f"Camera '{camera_id}' not connected. "

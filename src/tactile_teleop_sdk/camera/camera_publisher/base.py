@@ -26,11 +26,13 @@ class BaseCameraPublisher(ABC):
     def __init__(
         self,
         camera_settings: CameraSettings,
-        protocol_auth_config: BaseProtocolAuthConfig
+        protocol_auth_config: BaseProtocolAuthConfig,
+        node_id: str
     ):
         self.camera_settings = camera_settings
         self.protocol_auth_config = protocol_auth_config
-        self.node_id = "vr_camera_streamer"
+        self.node_id = node_id
+        
         self.publisher: BasePublisherNode | None = None
     
     async def connect(self, **publisher_kwargs) -> None:
@@ -40,6 +42,7 @@ class BaseCameraPublisher(ABC):
             self.protocol_auth_config,
             **publisher_kwargs
         )
+        print(f"Creating publisher with node_id: {self.node_id} and protocol_auth_config: {self.protocol_auth_config}")
         await self.publisher.connect()
     
     async def disconnect(self) -> None:

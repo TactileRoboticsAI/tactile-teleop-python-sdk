@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Any
+from typing import List, Any, Literal
 from dataclasses import field
 
 from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
@@ -38,9 +38,9 @@ class RawPublisherConfig(NodeConfig):
 @dataclass
 class ControlSubscriberConfig(NodeConfig):
     """Configuration for control subscriber"""
-    node_id: str = "control_subscriber"
-    controller_name: str = "ParallelGripperVRController"
-    component_ids: List[str] = field(default_factory=lambda: ["left", "right"])
+    node_id: str
+    controller_name: Literal["ParallelGripperVRController"]
+    component_ids: List[str]
     
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseControlSubscriber:
         
@@ -54,21 +54,22 @@ class ControlSubscriberConfig(NodeConfig):
 @dataclass
 class CameraPublisherConfig(NodeConfig):
     """Configuration for camera streaming to operator"""
-    node_id: str = "camera_publisher"
-    frame_height: int = 480
-    frame_width: int = 640
-    max_framerate: int = 30
-    max_bitrate: int = 3_000_000
+    node_id: str
+    frame_height: int
+    frame_width: int
+    max_framerate: int
+    max_bitrate: int 
     
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseCameraPublisher:
         return create_camera_publisher(
-            camera_type="livekit_vr",
             camera_settings=CameraSettings(
                 height=self.frame_height,
                 width=self.frame_width,
                 max_framerate=self.max_framerate,
                 max_bitrate=self.max_bitrate
             ),
-            protocol_auth_config=protocol_auth_config
+            protocol_auth_config=protocol_auth_config,
+            camera_type="livekit_vr",
+            node_id=self.node_id
         )
 

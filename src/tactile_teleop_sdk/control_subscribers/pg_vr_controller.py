@@ -53,7 +53,6 @@ class VRControllerState:
         self.origin_transform = None
 
 
-@dataclass
 class VRControllerEvent(BaseOperatorEvent):
     """Lower frequency control events coming from the VR Controllers."""
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -65,7 +64,6 @@ class VRControllerEvent(BaseOperatorEvent):
     gripper_closed: Optional[bool] = None
     
     
-@dataclass
 class ParallelGripperControlGoal(BaseControlGoal):
     """Robot control goal for a parallel gripper arm, exposed to the user with the API"""
     model_config = ConfigDict(arbitrary_types_allowed=True)

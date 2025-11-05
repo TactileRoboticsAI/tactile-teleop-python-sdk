@@ -1,4 +1,10 @@
 """Camera streaming module for VR teleoperation"""
 
-__all__ = []
+
+from tactile_teleop_sdk.camera.camera_publisher import (
+    LivekitVRCameraStreamer,
+)
+__all__ = [
+    "LivekitVRCameraStreamer",
+]
 

@@ -21,9 +21,10 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
         self,
         camera_settings: CameraSettings,
         protocol_auth_config: LivekitPublisherAuthConfig,
+        node_id: str
     ):
         self.camera_settings = camera_settings
-        self.track_name = "robot0-birds-eye"
+        self.track_name = "main_egocentric_camera"
         
         # Stereo width (2x for side-by-side)
         self.stereo_width = camera_settings.width * 2
@@ -32,10 +33,11 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
         # Initialize LiveKit video source and track
         self._init_video_track()
         
-        super().__init__(camera_settings, protocol_auth_config)
+        super().__init__(camera_settings, protocol_auth_config, node_id)
     
     async def connect(self, **publisher_kwargs) -> None:
         """Initialize publisher with track and establish connection"""
+        print(f"Connecting to LiveKit with track: {self.track_name}")
         await super().connect(track=self.track, track_publish_options=self.options, **publisher_kwargs)
     
     
