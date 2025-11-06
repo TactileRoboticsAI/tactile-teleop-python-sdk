@@ -131,7 +131,7 @@ class TactileAPI:
             TimeoutError: If operator doesn't connect within timeout period
             requests.RequestException: If polling request fails
         """
-        url = f"{self.config.server.backend_url}/api/robot/check-operator-connection"
+        url = f"{self.config.server.backend_url}/api/robot/check-operator-ready"
         
         start_time = asyncio.get_event_loop().time()
         
