@@ -41,6 +41,7 @@ class ControlSubscriberConfig(NodeConfig):
     node_id: str
     controller_name: Literal["ParallelGripperVRController"]
     component_ids: List[str]
+    subscribe_sources: List[str] = field(default_factory=list)
     
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> BaseControlSubscriber:
         
@@ -48,7 +49,8 @@ class ControlSubscriberConfig(NodeConfig):
             self.controller_name,
             self.component_ids,
             protocol_auth_config,
-            node_id=self.node_id
+            node_id=self.node_id,
+            subscribe_sources=self.subscribe_sources
         )
         
 @dataclass

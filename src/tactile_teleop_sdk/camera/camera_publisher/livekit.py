@@ -35,6 +35,7 @@ class LivekitVRCameraStreamer(BaseCameraPublisher):
         
         super().__init__(camera_settings, protocol_auth_config, node_id)
     
+    
     async def connect(self, **publisher_kwargs) -> None:
         """Initialize publisher with track and establish connection"""
         print(f"Connecting to LiveKit with track: {self.track_name}")

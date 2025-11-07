@@ -30,7 +30,9 @@ class BaseControlSubscriber(ABC):
         self, 
         component_ids: List[str],
         protocol_auth_config: BaseProtocolAuthConfig,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        subscribe_sources: List[str] = []
+        
     ):
         """Initialize control provider with transport configuration.
         
@@ -44,6 +46,7 @@ class BaseControlSubscriber(ABC):
         self._create_queues(component_ids)
         self._protocol_auth_config = protocol_auth_config
         self._node_id = node_id or self.__class__.__name__
+        self._subscribe_sources = subscribe_sources
         self._subscriber: Optional[BaseSubscriberNode] = None
         self._connected = False
         
@@ -72,6 +75,7 @@ class BaseControlSubscriber(ABC):
         
         self._subscriber = create_subscriber(
             node_id=self._node_id,
+            subscribe_sources=self._subscribe_sources,
             protocol_auth_config=self._protocol_auth_config
         )
         
@@ -143,8 +147,9 @@ def register_control_subscriber(controller_name: str):
 def create_control_subscriber(
     controller_name: str,
     component_ids: List[str],
-    connection_config: BaseProtocolAuthConfig,
-    node_id: Optional[str] = None
+    protocol_auth_config: BaseProtocolAuthConfig,
+    node_id: Optional[str] = None,
+    subscribe_sources: List[str] = []
 ) -> BaseControlSubscriber:
     """Factory function to create control subscriber instance by name"""
     subscriber_cls = _CONTROL_SUBSCRIBER_REGISTRY.get(controller_name)
@@ -153,4 +158,4 @@ def create_control_subscriber(
             f"Unknown control subscriber: {controller_name}. "
             f"Available: {list(_CONTROL_SUBSCRIBER_REGISTRY.keys())}"
         )
-    return subscriber_cls(component_ids, connection_config, node_id)
+    return subscriber_cls(component_ids, protocol_auth_config, node_id, subscribe_sources)

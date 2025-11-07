@@ -117,6 +117,23 @@ class TactileAPI:
         logging.info(f"✅ Node '{node_config.node_id}' ({node_role}) connected successfully")
         return node
     
+    
+    async def _check_operator_status(self) -> bool:
+        """Check if operator is currently connected"""
+        url = f"{self.config.server.backend_url}/api/robot/check-operator-ready"
+        payload = {
+            "robot_id": self.config.auth.robot_id,
+            "api_key": self.config.auth.api_key,
+        }
+        
+        response = await asyncio.to_thread(requests.post, url, json=payload, timeout=10, verify=False)
+        response.raise_for_status()
+        
+        status_data = OperatorConnectionStatusResponse.model_validate(response.json())
+        self.operator_connected = status_data.is_connected
+        
+        return status_data.is_connected
+
         
     async def connect_robot(self, poll_interval: float = 0.1, timeout: float = 300.0):
         """
@@ -131,8 +148,6 @@ class TactileAPI:
             TimeoutError: If operator doesn't connect within timeout period
             requests.RequestException: If polling request fails
         """
-        url = f"{self.config.server.backend_url}/api/robot/check-operator-ready"
-        
         start_time = asyncio.get_event_loop().time()
         
         while True:
@@ -141,18 +156,8 @@ class TactileAPI:
                 raise TimeoutError(f"Operator did not connect within {timeout} seconds")
             
             try:
-                payload = {
-                    "robot_id": self.config.auth.robot_id,
-                    "api_key": self.config.auth.api_key,
-                }
-                response = requests.post(url, json=payload, timeout=10, verify=False)
-                response.raise_for_status()
-                
-                status_data = OperatorConnectionStatusResponse.model_validate(response.json())
-                
-                if status_data.is_connected:
+                if await self._check_operator_status():
                     logging.info("✅ Operator connected, proceeding with protocol connection")
-                    self.operator_connected = True
                     break
                     
                 logging.info(f"⏳ Waiting for operator to connect... ({elapsed:.1f}s elapsed)")
@@ -165,19 +170,17 @@ class TactileAPI:
     
         
     async def disconnect_robot(self):
-        """Disconnect all connected nodes (subscribers and publishers)"""
-        # Disconnect all subscribers
+        """Disconnect all nodes"""
         for node in self._subscribers.values():
             await node.disconnect()
         self._subscribers.clear()
         
-        # Disconnect all publishers
         for node in self._publishers.values():
             await node.disconnect()
         self._publishers.clear()
         
         self.operator_connected = False
-        logging.info("✅ All nodes disconnected")
+        logging.info("✅ Monitoring stopped, all nodes disconnected")
         
         
     async def connect_controller(
@@ -189,7 +192,8 @@ class TactileAPI:
             config = ControlSubscriberConfig(
                 node_id="vr_controller",
                 controller_name="ParallelGripperVRController",
-                component_ids=robot_components
+                component_ids=robot_components,
+                subscribe_sources=["vr_controller"]
             )
         else:
             raise ValueError(f"Unknown controller type: {type}")

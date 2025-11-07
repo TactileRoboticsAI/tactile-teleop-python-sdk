@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-
+from typing import List
 from livekit import rtc
 
 from tactile_teleop_sdk.subscriber_node.base import (
@@ -27,10 +27,11 @@ class LivekitSubscriberAuthConfig(BaseProtocolAuthConfig):
 class LivekitSubscriberNode(BaseSubscriberNode):
     """LiveKit implementation of subscriber node"""
     
-    def __init__(self, node_id: str, protocol_auth_config: LivekitSubscriberAuthConfig):
-        super().__init__(node_id, protocol_auth_config)
+    def __init__(self, node_id: str, protocol_auth_config: LivekitSubscriberAuthConfig, subscribe_sources: List[str]):
+        super().__init__(node_id, protocol_auth_config, subscribe_sources=subscribe_sources)
         self.protocol_auth_config: LivekitSubscriberAuthConfig = protocol_auth_config
         self.room: rtc.Room | None = None
+        self.subscribe_sources = subscribe_sources
         self._data_tasks: set[asyncio.Task] = set()
 
     async def _handle_data_packet(self, packet: rtc.DataPacket) -> None:
@@ -59,8 +60,20 @@ class LivekitSubscriberNode(BaseSubscriberNode):
             logger.debug(f"🔴 Node disconnected: {participant.identity}")
 
         @self.room.on("track_published")
-        def on_track_published(publication, participant):
+        def on_track_published(publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant):
             logger.debug(f"📹 Track published by {participant.identity}: {publication.kind}")
+            if participant.identity in self.subscribe_sources:
+                logger.debug(f"Subscribing to new track from {participant.identity}: {publication.kind}")
+                publication.set_subscribed(True)
+            else:
+                logger.debug(f"Not subscribing to track from {participant.identity}: {publication.kind}")
+
+        # Subscribe to tracks from participants already in the room
+        for participant in self.room.remote_participants.values():
+            if participant.identity in self.subscribe_sources:
+                for publication in participant.track_publications.values():
+                    logger.debug(f"Subscribing to existing track from {participant.identity}: {publication.kind}")
+                    publication.set_subscribed(True) 
 
         @self.room.on("data_received")
         def on_data_received(data: rtc.DataPacket):
@@ -73,7 +86,8 @@ class LivekitSubscriberNode(BaseSubscriberNode):
         try:
             await self.room.connect(
                 self.protocol_auth_config.server_url,
-                self.protocol_auth_config.token
+                self.protocol_auth_config.token,
+                options=rtc.RoomOptions(auto_subscribe=False)
             )
             
             # Log connection state

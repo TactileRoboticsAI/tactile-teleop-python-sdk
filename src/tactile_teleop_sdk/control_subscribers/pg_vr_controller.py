@@ -105,9 +105,10 @@ class ParallelGripperVRController(BaseControlSubscriber):
         self, 
         component_ids: List[str],
         connection_config: BaseProtocolAuthConfig,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        subscribe_sources: List[str] = []
     ):
-        super().__init__(component_ids, connection_config, node_id)
+        super().__init__(component_ids, connection_config, node_id, subscribe_sources)
         self.left_controller = VRControllerState(hand="left")
         self.right_controller = VRControllerState(hand="right")
         self.left_gripper_closed = True

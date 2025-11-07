@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Type, Callable, Awaitable, Optional
+from typing import Dict, Type, Callable, Awaitable, Optional, List
 
 from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
 
@@ -7,9 +7,10 @@ from tactile_teleop_sdk.protocol_auth import BaseProtocolAuthConfig
 class BaseSubscriberNode(ABC):
     """Abstract base for protocol-agnostic subscriber nodes"""
     
-    def __init__(self, node_id: str, protocol_auth_config: BaseProtocolAuthConfig):
+    def __init__(self, node_id: str, protocol_auth_config: BaseProtocolAuthConfig, subscribe_sources: List[str]):
         self.node_id = node_id
         self.protocol_auth_config = protocol_auth_config
+        self.subscribe_sources = subscribe_sources
         self._data_callback: Optional[Callable[[Dict], Awaitable[None]]] = None
     
     def register_data_callback(self, callback: Callable[[Dict], Awaitable[None]]) -> None:
@@ -41,7 +42,8 @@ def register_protocol(protocol_name: str):
 
 def create_subscriber(
     node_id: str, 
-    protocol_auth_config: BaseProtocolAuthConfig
+    protocol_auth_config: BaseProtocolAuthConfig,
+    **kwargs
 ) -> BaseSubscriberNode:
     """Factory function to create subscriber instance by protocol"""
     protocol_cls = _PROTOCOL_REGISTRY.get(protocol_auth_config.protocol)
@@ -50,4 +52,4 @@ def create_subscriber(
             f"Unknown protocol: {protocol_auth_config.protocol}. "
             f"Available: {list(_PROTOCOL_REGISTRY.keys())}"
         )
-    return protocol_cls(node_id, protocol_auth_config)
+    return protocol_cls(node_id, protocol_auth_config, **kwargs)

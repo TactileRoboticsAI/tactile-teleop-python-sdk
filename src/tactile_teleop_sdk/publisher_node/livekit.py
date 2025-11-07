@@ -78,8 +78,8 @@ class LivekitPublisherNode(BasePublisherNode):
         
         try:
             print("Doing the livekit connection now (with the actual server url and token). Server url: ", self.protocol_auth_config.server_url, "Token: ", self.protocol_auth_config.token)
-            await self.room.connect(self.protocol_auth_config.server_url, self.protocol_auth_config.token)
-            print("Connection to livekit room successful for publisher node!!! !!!!!!!!!")
+            await self.room.connect(self.protocol_auth_config.server_url, self.protocol_auth_config.token, options=rtc.RoomOptions(auto_subscribe=False))
+            print("Connection to livekit room successful for publisher node!")
             # Log connection state
             logger.debug(f"✅ Connected to LiveKit room {self.protocol_auth_config.room_name} as node {self.node_id}")
             logger.debug(f"🔍 Room connection state: {self.room.connection_state}")
