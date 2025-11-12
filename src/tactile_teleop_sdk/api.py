@@ -190,10 +190,10 @@ class TactileAPI:
         
         if type == "parallel_gripper_vr_controller":
             config = ControlSubscriberConfig(
-                node_id="vr_controller",
+                node_id="vr_controller_subscriber",
                 controller_name="ParallelGripperVRController",
                 component_ids=robot_components,
-                subscribe_sources=["vr_controller"]
+                subscribe_sources=["vr_controller_publisher"] # The track that we subscribe to
             )
         else:
             raise ValueError(f"Unknown controller type: {type}")
@@ -201,7 +201,7 @@ class TactileAPI:
         return await self._ensure_node_connected(config, "subscriber")
     
     
-    async def disconnect_controller(self, controller_id: str = "vr_controller"):
+    async def disconnect_controller(self, controller_id: str = "vr_controller_subscriber"):
         """
         Disconnect a specific controller.
         
@@ -216,13 +216,13 @@ class TactileAPI:
             logging.warning(f"Controller '{controller_id}' not found")
     
     
-    async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller") -> BaseControlGoal:
+    async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller_subscriber") -> BaseControlGoal:
         """
         Get the control goal for a specific robot component.
         
         Args:
             component_id: Component identifier (e.g., "left", "right")
-            controller_id: Controller node identifier (default: "vr_controller")
+            controller_id: Controller node identifier (default: "vr_controller_subscriber")
             
         Returns:
             Control goal for the specified component
@@ -230,7 +230,7 @@ class TactileAPI:
         if controller_id not in self._subscribers:
             raise ValueError(
                 f"Controller '{controller_id}' not connected. "
-                f"Call connect_vr_controller(controller_id='{controller_id}') first."
+                f"Call connect_controller(type='parallel_gripper_vr_controller', robot_components=['left', 'right']) first."
             )
         
         subscriber: BaseControlSubscriber = self._subscribers[controller_id]  # type: ignore
@@ -242,8 +242,8 @@ class TactileAPI:
         camera_name: str = "camera_0",
         height: int = 480,
         width: int = 640,
-        max_framerate: int = 30,
-        max_bitrate: int = 3_000_000
+        max_framerate: int = 90,
+        max_bitrate: int = 10_000_000
     ) -> BaseCameraPublisher:
         """
         Connect a camera streamer to send video to operator.
