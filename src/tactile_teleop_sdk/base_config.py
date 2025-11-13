@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 @dataclass
 class TactileServerConfig:
-    backend_url: str = "https://localhost:8443/" #"https://teleop.tactilerobotics.ai"
+    backend_url: str = "https://10.5.176.205:8443/" #"https://teleop.tactilerobotics.ai"
     auth_endpoint: str = "api/robot/auth-node"
 
 

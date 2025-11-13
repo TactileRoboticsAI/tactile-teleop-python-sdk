@@ -57,6 +57,7 @@ class ControlSubscriberConfig(NodeConfig):
 class CameraPublisherConfig(NodeConfig):
     """Configuration for camera streaming to operator"""
     node_id: str
+    stereo: bool
     frame_height: int
     frame_width: int
     max_framerate: int
@@ -67,6 +68,7 @@ class CameraPublisherConfig(NodeConfig):
             camera_settings=CameraSettings(
                 height=self.frame_height,
                 width=self.frame_width,
+                stereo=self.stereo,
                 max_framerate=self.max_framerate,
                 max_bitrate=self.max_bitrate
             ),

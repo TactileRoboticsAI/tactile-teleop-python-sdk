@@ -240,6 +240,7 @@ class TactileAPI:
     async def connect_camera(
         self,
         camera_name: str = "camera_0",
+        stereo: bool = True,
         height: int = 480,
         width: int = 640,
         max_framerate: int = 90,
@@ -250,6 +251,7 @@ class TactileAPI:
         
         Args:
             camera_id: Unique identifier for this camera (for multiple cameras)
+            stereo: Whether to send stereo frames (default: True)
             height: Frame height in pixels
             width: Frame width in pixels
             max_framerate: Maximum framerate in Hz
@@ -260,6 +262,7 @@ class TactileAPI:
         """
         config = CameraPublisherConfig(
             node_id=f"camera_publisher_{camera_name}",
+            stereo=stereo,
             frame_height=height,
             frame_width=width,
             max_framerate=max_framerate,
@@ -313,8 +316,7 @@ class TactileAPI:
             )
         
         camera_publisher: BaseCameraPublisher = self._publishers[camera_id]  # type: ignore
-        frame = np.concatenate([left_frame, right_frame], axis=1)
-        await camera_publisher.send_stereo_frame(frame)
+        await camera_publisher.send_stereo_frame(left_frame, right_frame)
 
 
     async def send_single_frame(self, frame: np.ndarray, camera_name: str = "camera_0"):

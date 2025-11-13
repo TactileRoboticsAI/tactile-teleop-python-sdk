@@ -14,13 +14,14 @@ class CameraSettings(BaseModel):
     """Configuration for camera dimensions and encoding"""
     height: int
     width: int
+    stereo: bool = True
     max_framerate: int
     max_bitrate: int
 
 
 class BaseCameraPublisher(ABC):
     """
-    (stereo) camera streamer to VR headset/display.
+    Camera streamer to VR headset/display.
     """
     
     def __init__(
@@ -51,14 +52,14 @@ class BaseCameraPublisher(ABC):
             await self.publisher.disconnect()
             self.publisher = None
     
+    @abstractmethod
     async def send_single_frame(self, frame: np.ndarray) -> None:
         """Send a single camera frame (duplicated for stereo)"""
-        concatenated_frame = np.concatenate([frame, frame], axis=1)
-        await self.send_stereo_frame(concatenated_frame)
+        pass
     
     @abstractmethod
-    async def send_stereo_frame(self, frame: np.ndarray) -> None:
-        """Send a pre-concatenated stereo frame"""
+    async def send_stereo_frame(self, left_frame: np.ndarray, right_frame: np.ndarray) -> None:
+        """Send stereo frames to operator"""
         pass
 
 
