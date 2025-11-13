@@ -285,7 +285,7 @@ class VRController(BaseInputProvider):
         )
         await self.send_goal(goal)
 
-        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} reset button released - going to initial position")
+        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} next button released - starting/stopping recording")
 
     async def _handle_abort_button_release(self, hand: str):
         """Handle X button release for a controller."""
@@ -295,4 +295,4 @@ class VRController(BaseInputProvider):
         )
         await self.send_goal(goal)
 
-        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} reset button released - going to initial position")
+        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} discard button released - discarding recording")

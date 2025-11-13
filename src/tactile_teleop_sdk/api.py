@@ -133,7 +133,28 @@ class TactileAPI:
                 - reset_reference: True if the Grip button is activated, otherwise False.
                                    Sets the VR reference frame to the current frame.
         """
+        url = f"{self.backend_url}/api/session/recording-state"
         if not self.vr_controller:
             raise ValueError("VR controller not connected")
         await asyncio.sleep(0.001)
-        return self.vr_controller.get_controller_goal(arm)
+        goal = self.vr_controller.get_controller_goal(arm)
+
+        def _post_recording_event(event: str):
+            payload = {"api_key": self.api_key, "event": event}
+            try:
+                requests.post(url, json=payload, timeout=10, verify=False)
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Authentication failed: {e}")
+                if getattr(e, "response", None) is not None:
+                    try:
+                        print(f"Error details: {e.response.text}")
+                    except Exception as inner_e:
+                        print(f"Error details: {inner_e}")
+                raise
+
+        if goal.start_stop_recording:
+            _post_recording_event("start_stop_recording")
+        elif goal.discard_recording:
+            _post_recording_event("rerecord_episode")
+
+        return goal
