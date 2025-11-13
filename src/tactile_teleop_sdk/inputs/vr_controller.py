@@ -153,6 +153,14 @@ class VRController(BaseInputProvider):
             await self._handle_reset_button_release(hand)
             return
 
+        if data.get("yButtonReleased"):
+            assert hand == "left"
+            await self._handle_abort_button_release(hand)
+
+        if data.get("bButtonReleased"):
+            assert hand == "right"
+            await self._handle_next_button_release(hand)
+
     async def _process_single_controller(self, hand: str, data: Dict):
         """Process data for a single controller."""
         position = data.get("position", {})
@@ -263,6 +271,26 @@ class VRController(BaseInputProvider):
         """Handle X button release for a controller."""
         goal = VRControllerGoal(
             event_type=EventType.RESET_BUTTON_RELEASE,
+            arm=hand,
+        )
+        await self.send_goal(goal)
+
+        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} reset button released - going to initial position")
+
+    async def _handle_next_button_release(self, hand: str):
+        """Handle X button release for a controller."""
+        goal = VRControllerGoal(
+            event_type=EventType.NEXT_TRIGGER_RELEASE,
+            arm=hand,
+        )
+        await self.send_goal(goal)
+
+        logger.info(f"(VRControllerInputProvider) 🔓 {hand.upper()} reset button released - going to initial position")
+
+    async def _handle_abort_button_release(self, hand: str):
+        """Handle X button release for a controller."""
+        goal = VRControllerGoal(
+            event_type=EventType.DISCARD_TRIGGER_RELEASE,
             arm=hand,
         )
         await self.send_goal(goal)

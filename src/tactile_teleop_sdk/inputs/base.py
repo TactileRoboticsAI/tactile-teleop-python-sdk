@@ -24,6 +24,8 @@ class EventType(Enum):
     TRIGGER_ACTIVE = "trigger_active"  # Trigger button pressed
     TRIGGER_RELEASE = "trigger_release"  # Trigger button released
     RESET_BUTTON_RELEASE = "reset_button_release"  # Reset button released
+    NEXT_TRIGGER_RELEASE = "next_button_release"  # Next button released
+    DISCARD_TRIGGER_RELEASE = "discard_button_release"  # Discard button released
 
 
 @dataclass
@@ -46,6 +48,8 @@ class ArmGoal:
     gripper_closed: Optional[bool] = None
     reset_to_init: bool = False
     reset_reference: bool = False
+    start_stop_recording: bool = False
+    discard_recording: bool = False
 
 
 class BaseInputProvider(ABC):
@@ -114,6 +118,14 @@ class BaseInputProvider(ABC):
                 vr_default_goal.origin_transform = None
                 vr_default_goal.target_transform = None
                 arm_goal.reset_to_init = True
+            elif vr_goal.event_type == EventType.DISCARD_TRIGGER_RELEASE:
+                vr_default_goal.origin_transform = None
+                vr_default_goal.target_transform = None
+                arm_goal.discard_recording = True
+            elif vr_goal.event_type == EventType.NEXT_TRIGGER_RELEASE:
+                vr_default_goal.origin_transform = None
+                vr_default_goal.target_transform = None
+                arm_goal.start_stop_recording = True
             else:
                 raise ValueError(f"Unknown event type: {vr_goal.event_type}")
 
