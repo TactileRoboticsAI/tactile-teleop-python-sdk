@@ -31,13 +31,22 @@ class TactileAPI:
 
         try:
             response = requests.post(url, json=payload, timeout=10, verify=False)
-            return response.json()
+            response.raise_for_status()  # Raise an exception for bad status codes
+
+            try:
+                return response.json()
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"❌ Authentication failed: Invalid JSON response")
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text[:500]}")  # First 500 chars
+                raise requests.exceptions.RequestException(f"Invalid JSON response: {e}") from e
 
         except requests.exceptions.RequestException as e:
             print(f"❌ Authentication failed: {e}")
             if hasattr(e, "response") and e.response is not None:
                 try:
                     error_detail = e.response.text
+                    print(f"Status code: {e.response.status_code}")
                     print(f"Error details: {error_detail}")
                 except Exception as e:
                     print(f"Error details: {e}")
