@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import requests #type: ignore
 
 import numpy as np
@@ -7,6 +8,8 @@ import numpy as np
 from pydantic import BaseModel
 from typing import Literal, Any, List   
 from dotenv import load_dotenv
+from huggingface_hub import HfApi, login, auth_check
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 from tactile_teleop_sdk.config import TactileConfig
 from tactile_teleop_sdk.factory_configs import ControlSubscriberConfig, CameraPublisherConfig, NodeConfig
@@ -42,12 +45,11 @@ class TactileAPI:
         # Auth and Protocol Configurations
         self.config = config
         self.operator_connected = False
-        
+
         # Node caches
         self._subscribers: dict[str, BaseSubscriberNode] = {}
         self._publishers: dict[str, BasePublisherNode] = {}
-        
-        
+
     async def _auth_node(self, node_id: str, node_role: Literal["subscriber", "publisher"]) -> AuthNodeResponse:
         """
         Authenticate Robot Node and get Protocol Authentication Token.
@@ -77,8 +79,7 @@ class TactileAPI:
                 except Exception as e:
                     print(f"Error details: {e}")
             raise
-        
-        
+
     async def _ensure_node_connected(
         self,
         node_config: NodeConfig,
@@ -92,11 +93,11 @@ class TactileAPI:
         """
         # Select cache based on role
         cache = self._subscribers if node_role == "subscriber" else self._publishers
-        
+
         # Check if already connected
         if node_config.node_id in cache:
             return cache[node_config.node_id]
-        
+
         # Authenticate
         auth_response = await self._auth_node(node_config.node_id, node_role)
         protocol_auth_config =  create_protocol_auth_config(
@@ -105,19 +106,18 @@ class TactileAPI:
             token=auth_response.token,
             server_url=auth_response.protocol_server_url,
         )
-        
+
         # Create node via factory
         node = node_config.create_node(protocol_auth_config)
-        
+
         # Connect node
         await node.connect()
-        
+
         # Cache and return
         cache[node_config.node_id] = node
         logging.info(f"✅ Node '{node_config.node_id}' ({node_role}) connected successfully")
         return node
-    
-    
+
     async def _check_operator_status(self) -> bool:
         """Check if operator is currently connected"""
         url = f"{self.config.server.backend_url}/api/robot/check-operator-ready"
@@ -125,16 +125,15 @@ class TactileAPI:
             "robot_id": self.config.auth.robot_id,
             "api_key": self.config.auth.api_key,
         }
-        
+
         response = await asyncio.to_thread(requests.post, url, json=payload, timeout=10, verify=False)
         response.raise_for_status()
-        
+
         status_data = OperatorConnectionStatusResponse.model_validate(response.json())
         self.operator_connected = status_data.is_connected
-        
+
         return status_data.is_connected
 
-        
     async def connect_robot(self, poll_interval: float = 0.1, timeout: float = 300.0):
         """
         Connect the robot server to the operator.
@@ -149,45 +148,43 @@ class TactileAPI:
             requests.RequestException: If polling request fails
         """
         start_time = asyncio.get_event_loop().time()
-        
+
         while True:
             elapsed = asyncio.get_event_loop().time() - start_time
             if elapsed >= timeout:
                 raise TimeoutError(f"Operator did not connect within {timeout} seconds")
-            
+
             try:
                 if await self._check_operator_status():
                     logging.info("✅ Operator connected, proceeding with protocol connection")
                     break
-                    
+
                 logging.info(f"⏳ Waiting for operator to connect... ({elapsed:.1f}s elapsed)")
-                
+
             except requests.RequestException as e:
                 logging.error(f"❌ Failed to poll operator status: {e}")
                 raise
-            
+
             await asyncio.sleep(poll_interval)
-    
-        
+
     async def disconnect_robot(self):
         """Disconnect all nodes"""
         for node in self._subscribers.values():
             await node.disconnect()
         self._subscribers.clear()
-        
+
         for node in self._publishers.values():
             await node.disconnect()
         self._publishers.clear()
-        
+
         self.operator_connected = False
         logging.info("✅ Monitoring stopped, all nodes disconnected")
-        
-        
+
     async def connect_controller(
         self,
         type: Literal["parallel_gripper_vr_controller"] = "parallel_gripper_vr_controller",
         robot_components: List[str] = ["left", "right"]) -> BaseControlSubscriber:
-        
+
         if type == "parallel_gripper_vr_controller":
             config = ControlSubscriberConfig(
                 node_id="vr_controller",
@@ -197,10 +194,9 @@ class TactileAPI:
             )
         else:
             raise ValueError(f"Unknown controller type: {type}")
-        
+
         return await self._ensure_node_connected(config, "subscriber")
-    
-    
+
     async def disconnect_controller(self, controller_id: str = "vr_controller"):
         """
         Disconnect a specific controller.
@@ -214,8 +210,7 @@ class TactileAPI:
             logging.info(f"✅ Controller '{controller_id}' disconnected")
         else:
             logging.warning(f"Controller '{controller_id}' not found")
-    
-    
+
     async def get_controller_goal(self, component_id: str, controller_id: str = "vr_controller") -> BaseControlGoal:
         """
         Get the control goal for a specific robot component.
@@ -232,11 +227,10 @@ class TactileAPI:
                 f"Controller '{controller_id}' not connected. "
                 f"Call connect_vr_controller(controller_id='{controller_id}') first."
             )
-        
+
         subscriber: BaseControlSubscriber = self._subscribers[controller_id]  # type: ignore
         return subscriber.get_control_goal(component_id)
-    
-    
+
     async def connect_camera(
         self,
         camera_name: str = "camera_0",
@@ -265,10 +259,9 @@ class TactileAPI:
             max_framerate=max_framerate,
             max_bitrate=max_bitrate
         )
-        
+
         return await self._ensure_node_connected(config, "publisher")
-    
-    
+
     async def disconnect_camera(self, camera_name: str = "camera_0"):
         """
         Disconnect a specific camera streamer.
@@ -283,7 +276,6 @@ class TactileAPI:
             logging.info(f"✅ Camera '{camera_id}' disconnected")
         else:
             logging.warning(f"Camera '{camera_id}' not found")
-
 
     async def send_stereo_frame(
         self, 
@@ -304,18 +296,17 @@ class TactileAPI:
         """
         if not self.operator_connected:
             return
-        
+
         camera_id = f"camera_publisher_{camera_name}"
         if camera_id not in self._publishers:
             raise ValueError(
                 f"Camera '{camera_id}' not connected. "
                 f"Call connect_camera_streamer(camera_id='{camera_id}') first."
             )
-        
+
         camera_publisher: BaseCameraPublisher = self._publishers[camera_id]  # type: ignore
         frame = np.concatenate([left_frame, right_frame], axis=1)
         await camera_publisher.send_stereo_frame(frame)
-
 
     async def send_single_frame(self, frame: np.ndarray, camera_name: str = "camera_0"):
         """
@@ -330,18 +321,17 @@ class TactileAPI:
         """
         if not self.operator_connected:
             return
-        
+
         camera_id = f"camera_publisher_{camera_name}"
         if camera_id not in self._publishers:
             raise ValueError(
                 f"Camera '{camera_id}' not connected. "
                 f"Call connect_camera_streamer(camera_id='{camera_id}') first."
             )
-        
+
         camera_publisher: BaseCameraPublisher = self._publishers[camera_id]  # type: ignore
         await camera_publisher.send_single_frame(frame)
-    
-    
+
     # Custom node methods for fully extensible communication
     async def get_subscriber(self, node_id: str) -> BaseSubscriberNode:
         """
@@ -366,7 +356,7 @@ class TactileAPI:
         """
         if not self.config.custom_subscribers:
             raise ValueError("No custom subscribers configured")
-        
+
         config = next(
             (c for c in self.config.custom_subscribers if c.node_id == node_id),
             None
@@ -376,10 +366,9 @@ class TactileAPI:
                 f"No subscriber config found for '{node_id}'. "
                 f"Available: {[c.node_id for c in self.config.custom_subscribers]}"
             )
-        
+
         return await self._ensure_node_connected(config, "subscriber")
-    
-    
+
     async def get_publisher(self, node_id: str) -> BasePublisherNode:
         """
         Get a raw publisher node for custom data streams - auto-connects if needed.
@@ -403,7 +392,7 @@ class TactileAPI:
         """
         if not self.config.custom_publishers:
             raise ValueError("No custom publishers configured")
-        
+
         config = next(
             (c for c in self.config.custom_publishers if c.node_id == node_id),
             None
@@ -413,5 +402,39 @@ class TactileAPI:
                 f"No publisher config found for '{node_id}'. "
                 f"Available: {[c.node_id for c in self.config.custom_publishers]}"
             )
-        
+
         return await self._ensure_node_connected(config, "publisher")
+
+    def _check_hf_authenticate(self) -> bool:
+        """Check if user is authenticated with Hugging Face Hub
+        Returns:
+            True if authenticated
+            False if not authenticated
+        """
+        try:
+            HfApi()
+
+            return True
+        except Exception as e:
+            return False
+
+    async def authenticate_hf(self) -> bool:
+        """Autenticates with HuggingFace Hub using the environment variable 'HF_TOKEN'
+        Returns:
+            True if the authentication was successful
+            False otherwise
+        """
+        token = os.getenv("HF_TOKEN")
+        if token:
+            login(token=token)
+        else:
+            login()
+        if self._check_hf_authenticate():
+            user = HfApi().whoami()
+            logging.info(f"Authenticated with HuggingFace Hub as {user['name']}")
+            return True
+        else:
+            logging.error(f"Failed to authenticated with HuggingFace Hub: {str(e)}")
+            return False
+
+    def configure_repo()

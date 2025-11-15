@@ -38,7 +38,7 @@ class BaseCameraPublisher(ABC):
     async def connect(self, **publisher_kwargs) -> None:
         """Initialize publisher and establish connection"""
         self.publisher = create_publisher(
-            self.node_id, 
+            self.node_id,
             self.protocol_auth_config,
             **publisher_kwargs
         )
