@@ -12,9 +12,9 @@ async def main():
     # Initialize the API with config from environment
     config = TactileConfig.from_env()
     api = TactileAPI(config)
-    
+
     # Connect to robot and wait for operator
-    await api.connect_robot()
+    await api.wait_for_operator()
 
     # Connect VR controller
     await api.connect_controller(type="parallel_gripper_vr_controller", robot_components=["left", "right"])
@@ -42,7 +42,7 @@ async def main():
             await asyncio.sleep(0.01)
 
     finally:
-        await api.disconnect_robot()
+        await api.diswait_for_operator()
 
 if __name__ == "__main__":
     asyncio.run(main())

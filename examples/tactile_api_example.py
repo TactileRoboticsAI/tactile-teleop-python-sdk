@@ -7,13 +7,13 @@ async def main():
     # Initialize API with config from environment variables
     config = TactileConfig.from_env()
     api = TactileAPI(config)
-    
+
     # Connect and wait for operator
-    await api.connect_robot(timeout=300.0)
-    
+    await api.wait_for_operator(timeout=300.0)
+
     # Connect VR controller
     await api.connect_controller(type="parallel_gripper_vr_controller", robot_components=["left", "right"])
-    
+
     # Connect camera streamer with custom resolution
     await api.connect_camera(
         camera_name="main_camera",
@@ -28,20 +28,19 @@ async def main():
             # Get control goals for robot components
             left_goal = await api.get_controller_goal("left")
             right_goal = await api.get_controller_goal("right")
-            
+
             # Execute robot control with received goals
             # ... your robot control logic here ...
-            
+
             # Send camera frames back to operator
             left_frame = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
             right_frame = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
             await api.send_stereo_frame(left_frame, right_frame, camera_id="main_camera")
-            
+
             await asyncio.sleep(0.01)  # 100Hz control loop
-            
+
     finally:
-        await api.disconnect_robot()
+        await api.diswait_for_operator()
 
 if __name__ == "__main__":
     asyncio.run(main())
-

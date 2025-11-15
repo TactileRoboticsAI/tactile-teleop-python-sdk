@@ -7,8 +7,8 @@ import numpy as np
 from pydantic import ConfigDict
 
 from tactile_teleop_sdk.control_subscribers.base import (
-    BaseControlGoal, 
-    BaseControlSubscriber, 
+    BaseControlGoal,
+    BaseControlSubscriber,
     BaseOperatorEvent,
     register_control_subscriber,
 )
@@ -62,8 +62,8 @@ class VRControllerEvent(BaseOperatorEvent):
     origin_transform: Optional[np.ndarray] = None
     target_transform: Optional[np.ndarray] = None
     gripper_closed: Optional[bool] = None
-    
-    
+
+
 class ParallelGripperControlGoal(BaseControlGoal):
     """Robot control goal for a parallel gripper arm, exposed to the user with the API"""
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -73,7 +73,7 @@ class ParallelGripperControlGoal(BaseControlGoal):
     gripper_closed: Optional[bool] = None
     reset_to_init: bool = False
     reset_reference: bool = False
-    
+
 
 @register_control_subscriber("ParallelGripperVRController")
 class ParallelGripperVRController(BaseControlSubscriber):

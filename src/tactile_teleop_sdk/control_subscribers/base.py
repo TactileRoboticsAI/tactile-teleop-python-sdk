@@ -27,12 +27,11 @@ class BaseControlSubscriber(ABC):
     """
 
     def __init__(
-        self, 
+        self,
         component_ids: List[str],
         protocol_auth_config: BaseProtocolAuthConfig,
         node_id: Optional[str] = None,
-        subscribe_sources: List[str] = []
-        
+        subscribe_sources: List[str] = [],
     ):
         """Initialize control provider with transport configuration.
         
@@ -49,12 +48,12 @@ class BaseControlSubscriber(ABC):
         self._subscribe_sources = subscribe_sources
         self._subscriber: Optional[BaseSubscriberNode] = None
         self._connected = False
-        
+
     @abstractmethod
     def _process_operator_data_queue(self, operator_data_queue: list, component_id: str) -> Any:
         """Process a list of control goals and return a single control goal."""
         pass
-    
+
     @abstractmethod
     async def _handle_incoming_data(self, data: dict) -> None:
         """Handle incoming data from transport layer.
@@ -66,40 +65,40 @@ class BaseControlSubscriber(ABC):
             data: Raw data received from subscriber node
         """
         pass
-    
+
     async def connect(self) -> None:
         """Connect to transport layer and start receiving data."""
         if self._connected:
             logger.warning(f"({self._node_id}) Already connected to transport layer")
             return
-        
+
         self._subscriber = create_subscriber(
             node_id=self._node_id,
             subscribe_sources=self._subscribe_sources,
             protocol_auth_config=self._protocol_auth_config
         )
-        
+
         self._subscriber.register_data_callback(self._handle_incoming_data)
-        
+
         await self._subscriber.connect()
         self._connected = True
         logger.info(f"({self._node_id}) ✅ Connected to transport layer and ready")
-    
+
     async def disconnect(self) -> None:
         """Disconnect from transport layer."""
         if not self._connected or self._subscriber is None:
             return
-        
+
         await self._subscriber.disconnect()
         self._subscriber = None
         self._connected = False
         logger.info(f"({self._node_id}) 🏁 Disconnected from transport layer")
-        
+
     def _create_queues(self, component_ids: List[str]):
         for component_id in component_ids:
             self.queues[component_id] = asyncio.Queue()
         return self.queues
-    
+
     def _get_queue(self, component_id: str) -> asyncio.Queue:
         return self.queues[component_id]
 
@@ -116,9 +115,9 @@ class BaseControlSubscriber(ABC):
 
     def get_control_goal(self, component_id: str) -> BaseControlGoal:
         """Get a control goal from the queue."""
-        
+
         queue = self._get_queue(component_id)
-        
+
         # Drain queue
         operator_data_queue = []
         try:
@@ -126,7 +125,7 @@ class BaseControlSubscriber(ABC):
                 operator_data_queue.append(queue.get_nowait())
         except asyncio.QueueEmpty:
             pass
-        
+
         # Calculate control goal
         control_goal: BaseControlGoal = self._process_operator_data_queue(operator_data_queue, component_id)
         return control_goal

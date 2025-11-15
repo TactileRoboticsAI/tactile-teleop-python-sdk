@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import requests #type: ignore
+from typing import Optional
+from pathlib import Path
 
 import numpy as np
 
@@ -9,16 +11,23 @@ from pydantic import BaseModel
 from typing import Literal, Any, List   
 from dotenv import load_dotenv
 from huggingface_hub import HfApi, login, auth_check
+from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 from tactile_teleop_sdk.config import TactileConfig
-from tactile_teleop_sdk.factory_configs import ControlSubscriberConfig, CameraPublisherConfig, NodeConfig
+from tactile_teleop_sdk.factory_configs import (
+    ControlSubscriberConfig,
+    CameraPublisherConfig,
+    NodeConfig,
+    OperatorSubscriberConfig,
+)
 from tactile_teleop_sdk.subscriber_node.base import BaseSubscriberNode
 from tactile_teleop_sdk.publisher_node.base import BasePublisherNode
 from tactile_teleop_sdk.protocol_auth import create_protocol_auth_config
 from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber
 from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher
 from tactile_teleop_sdk.control_subscribers.base import BaseControlGoal
+from tactile_teleop_sdk.operator_subscribers.base import BaseOperatorSubscriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -134,7 +143,7 @@ class TactileAPI:
 
         return status_data.is_connected
 
-    async def connect_robot(self, poll_interval: float = 0.1, timeout: float = 300.0):
+    async def wait_for_operator(self, poll_interval: float = 0.1, timeout: float = 300.0):
         """
         Connect the robot server to the operator.
         Polls the webserver until operator is connected, then establishes protocol connection.
@@ -195,6 +204,10 @@ class TactileAPI:
         else:
             raise ValueError(f"Unknown controller type: {type}")
 
+        return await self._ensure_node_connected(config, "subscriber")
+
+    async def connect_operator(self) -> BaseOperatorSubscriber:
+        config = OperatorSubscriberConfig(node_id="operator", subscribe_sources=["operator-data"])
         return await self._ensure_node_connected(config, "subscriber")
 
     async def disconnect_controller(self, controller_id: str = "vr_controller"):
@@ -413,13 +426,12 @@ class TactileAPI:
         """
         try:
             HfApi()
-
             return True
         except Exception as e:
             return False
 
     async def authenticate_hf(self) -> bool:
-        """Autenticates with HuggingFace Hub using the environment variable 'HF_TOKEN'
+        """Autenticates with Hugging Face Hub using the environment variable 'HF_TOKEN'
         Returns:
             True if the authentication was successful
             False otherwise
@@ -431,10 +443,8 @@ class TactileAPI:
             login()
         if self._check_hf_authenticate():
             user = HfApi().whoami()
-            logging.info(f"Authenticated with HuggingFace Hub as {user['name']}")
+            logging.info(f"Authenticated with Hugging Face Hub as {user['name']}")
             return True
         else:
             logging.error(f"Failed to authenticated with HuggingFace Hub: {str(e)}")
             return False
-
-    def configure_repo()
