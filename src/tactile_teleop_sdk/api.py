@@ -207,7 +207,7 @@ class TactileAPI:
         return await self._ensure_node_connected(config, "subscriber")
 
     async def connect_operator(self) -> BaseOperatorSubscriber:
-        config = OperatorSubscriberConfig(node_id="operator", subscribe_sources=["operator-data"])
+        config = OperatorSubscriberConfig(node_id="operator_subscriber", subscribe_sources=["operator"])
         return await self._ensure_node_connected(config, "subscriber")
 
     async def disconnect_controller(self, controller_id: str = "vr_controller"):

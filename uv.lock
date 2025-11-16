@@ -2784,7 +2784,7 @@ visualization = [
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "huggingface-hub", specifier = ">=1.1.4" },
-    { name = "lerobot", specifier = ">=0.3.3" },
+    { name = "lerobot", specifier = "<=0.4.0" },
     { name = "livekit", specifier = ">=1.0.12" },
     { name = "livekit-api", specifier = ">=1.0.5" },
     { name = "pydantic", specifier = ">=2.12.3" },
