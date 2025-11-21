@@ -11,24 +11,30 @@ from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber, c
 from tactile_teleop_sdk.camera.camera_publisher.base import CameraSettings, create_camera_publisher, BaseCameraPublisher
 
 
-@dataclass
 class NodeConfig(ABC):
     """Base class for all node configurations"""
-    node_id: str
+    def __init__(self, node_id: str, node_role: Literal["subscriber", "publisher"], **kwargs):
+        self.node_id = node_id
+        self.node_role = node_role
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        
+    def model_dump(self) -> dict:
+        return {
+            **{k: v for k,v in self.__dict__.items()}
+        }
     
     @abstractmethod
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> Any:
         """Factory Method to create the node instance"""
         pass
 
-@dataclass
 class RawSubscriberConfig(NodeConfig):
     """Configuration for raw subscriber nodes (custom data streams)"""
     
     def create_node(self, protocol_auth_config: BaseProtocolAuthConfig) -> Any:
         return create_subscriber(self.node_id, protocol_auth_config)
     
-@dataclass
 class RawPublisherConfig(NodeConfig):
     """Configuration for raw publisher nodes (custom data streams)"""
     
@@ -39,6 +45,7 @@ class RawPublisherConfig(NodeConfig):
 class ControlSubscriberConfig(NodeConfig):
     """Configuration for control subscriber"""
     node_id: str
+    node_role: Literal["subscriber"]
     controller_name: Literal["ParallelGripperVRController"]
     component_ids: List[str]
     subscribe_sources: List[str] = field(default_factory=list)
@@ -57,6 +64,7 @@ class ControlSubscriberConfig(NodeConfig):
 class CameraPublisherConfig(NodeConfig):
     """Configuration for camera streaming to operator"""
     node_id: str
+    node_role: Literal["publisher"]
     stereo: bool
     frame_height: int
     frame_width: int

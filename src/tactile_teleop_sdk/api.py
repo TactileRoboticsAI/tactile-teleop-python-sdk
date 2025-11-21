@@ -48,7 +48,7 @@ class TactileAPI:
         self._publishers: dict[str, BasePublisherNode] = {}
         
         
-    async def _auth_node(self, node_id: str, node_role: Literal["subscriber", "publisher"]) -> AuthNodeResponse:
+    async def _auth_node(self, node_config: NodeConfig) -> AuthNodeResponse:
         """
         Authenticate Robot Node and get Protocol Authentication Token.
         """
@@ -58,9 +58,8 @@ class TactileAPI:
             "robot_id": self.config.auth.robot_id,
             "api_key": self.config.auth.api_key,
             "protocol": self.config.protocol.protocol,
-            "node_id": node_id,
-            "node_role": node_role,
             "ttl_minutes": self.config.protocol.ttl_minutes,
+            "node_config": node_config.model_dump(),
         }
 
         try:
@@ -85,8 +84,11 @@ class TactileAPI:
         node_role: Literal["subscriber", "publisher"]
     ) -> Any:
         """
-        Unified connection logic for all node types.
+        Connect a node to the robot if not yet connected (universal/abstract for all node types)
         
+        Args:
+            node_config: Node configuration
+            node_role: Role of the node (subscriber or publisher)
         Returns:
             The connected node instance
         """
@@ -98,7 +100,7 @@ class TactileAPI:
             return cache[node_config.node_id]
         
         # Authenticate
-        auth_response = await self._auth_node(node_config.node_id, node_role)
+        auth_response = await self._auth_node(node_config)
         protocol_auth_config =  create_protocol_auth_config(
             protocol=self.config.protocol.protocol,
             room_name=auth_response.room_name,
@@ -189,8 +191,10 @@ class TactileAPI:
         robot_components: List[str] = ["left", "right"]) -> BaseControlSubscriber:
         
         if type == "parallel_gripper_vr_controller":
-            config = ControlSubscriberConfig(
-                node_id="vr_controller_subscriber",
+            node_id: str = 'vr_controller_subscriber'
+            control_subscriber_config = ControlSubscriberConfig(
+                node_id=node_id,
+                node_role="subscriber",
                 controller_name="ParallelGripperVRController",
                 component_ids=robot_components,
                 subscribe_sources=["vr_controller_publisher"] # The track that we subscribe to
@@ -198,7 +202,7 @@ class TactileAPI:
         else:
             raise ValueError(f"Unknown controller type: {type}")
         
-        return await self._ensure_node_connected(config, "subscriber")
+        return await self._ensure_node_connected(control_subscriber_config, "subscriber")
     
     
     async def disconnect_controller(self, controller_id: str = "vr_controller_subscriber"):
@@ -262,6 +266,7 @@ class TactileAPI:
         """
         config = CameraPublisherConfig(
             node_id=f"camera_publisher_{camera_name}",
+            node_role="publisher",
             stereo=stereo,
             frame_height=height,
             frame_width=width,
@@ -369,17 +374,17 @@ class TactileAPI:
         if not self.config.custom_subscribers:
             raise ValueError("No custom subscribers configured")
         
-        config = next(
+        node_config = next(
             (c for c in self.config.custom_subscribers if c.node_id == node_id),
             None
         )
-        if not config:
+        if not node_config:
             raise ValueError(
                 f"No subscriber config found for '{node_id}'. "
                 f"Available: {[c.node_id for c in self.config.custom_subscribers]}"
             )
         
-        return await self._ensure_node_connected(config, "subscriber")
+        return await self._ensure_node_connected(node_config, "subscriber")
     
     
     async def get_publisher(self, node_id: str) -> BasePublisherNode:
@@ -406,14 +411,14 @@ class TactileAPI:
         if not self.config.custom_publishers:
             raise ValueError("No custom publishers configured")
         
-        config = next(
+        node_config = next(
             (c for c in self.config.custom_publishers if c.node_id == node_id),
             None
         )
-        if not config:
+        if not node_config:
             raise ValueError(
                 f"No publisher config found for '{node_id}'. "
                 f"Available: {[c.node_id for c in self.config.custom_publishers]}"
             )
         
-        return await self._ensure_node_connected(config, "publisher")
+        return await self._ensure_node_connected(node_config, "publisher")
