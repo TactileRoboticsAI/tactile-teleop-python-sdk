@@ -1,0 +1,45 @@
+# Example Tactile Teleop Configuration File
+# Copy this file to 'tactile.toml' and customize for your setup
+
+[auth]
+robot_id = "your-robot-id-here"
+api_key = "your-api-key-here"
+
+[protocol]
+protocol = "livekit"
+ttl_minutes = 120
+
+[server]
+backend_url = "https://10.5.177.78:8443/"
+auth_endpoint = "api/robot/auth-node"
+
+[dataset]
+name = "my_robot_dataset"
+
+# Camera configuration example
+[cameras.front]
+name = "Front Camera"
+type = "stereo"
+mode = "streaming"
+fps = 60
+frame_height = 220
+frame_width = 300
+cam_index = 6
+capture_api = 200
+
+[cameras.wrist]
+name = "Wrist Camera"
+type = "monocular"
+mode = "hybrid"
+fps = 30
+frame_height = 480
+frame_width = 640
+cam_index = 8
+capture_api = 200
+
+# Dataset features configuration
+[dataset.features.action]
+dtype = "float32"
+shape = [3]
+names = ["joint_1", "joint_2", "joint_3"]
+

@@ -2,11 +2,12 @@ import asyncio
 import logging
 import os
 import requests #type: ignore
-from typing import Optional
+from typing import Callable, Dict, Optional
 from pathlib import Path
 
 import numpy as np
 
+from livekit import rtc
 from pydantic import BaseModel
 from typing import Literal, Any, List   
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from huggingface_hub import HfApi, login, auth_check
 from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
+from tactile_teleop_sdk.events import EventManager, EventType
 from tactile_teleop_sdk.config import TactileConfig
 from tactile_teleop_sdk.factory_configs import (
     ControlSubscriberConfig,
@@ -43,8 +45,8 @@ class OperatorConnectionStatusResponse(BaseModel):
     is_connected: bool
 
 class TactileAPI:
-    def __init__(
-        self, config: TactileConfig):
+
+    def __init__(self, config: TactileConfig):
         """
         Initialize the TactileAPI
         
@@ -53,7 +55,11 @@ class TactileAPI:
         """
         # Auth and Protocol Configurations
         self.config = config
-        self.operator_connected = False
+        self.__operator_connected = False
+
+        # Event Manager
+        self.__rooms: Dict[str, rtc.Room] = {}
+        self.__event_manager = EventManager()
 
         # Node caches
         self._subscribers: dict[str, BaseSubscriberNode] = {}
@@ -139,7 +145,7 @@ class TactileAPI:
         response.raise_for_status()
 
         status_data = OperatorConnectionStatusResponse.model_validate(response.json())
-        self.operator_connected = status_data.is_connected
+        self.__operator_connected = status_data.is_connected
 
         return status_data.is_connected
 
@@ -186,7 +192,7 @@ class TactileAPI:
             await node.disconnect()
         self._publishers.clear()
 
-        self.operator_connected = False
+        self.__operator_connected = False
         logging.info("✅ Monitoring stopped, all nodes disconnected")
 
     async def connect_controller(
@@ -307,7 +313,7 @@ class TactileAPI:
         Raises:
             ValueError: Camera publisher not connected
         """
-        if not self.operator_connected:
+        if not self.__operator_connected:
             return
 
         camera_id = f"camera_publisher_{camera_name}"
@@ -332,7 +338,7 @@ class TactileAPI:
         Raises:
             ValueError: Camera publisher not connected
         """
-        if not self.operator_connected:
+        if not self.__operator_connected:
             return
 
         camera_id = f"camera_publisher_{camera_name}"
@@ -417,6 +423,219 @@ class TactileAPI:
             )
 
         return await self._ensure_node_connected(config, "publisher")
+
+    def on(self, event: str, callback: Callable) -> None:
+        """Register custom event handlers
+
+        Args:
+            event: Event name (e.g. EventType.OPERATOR_CONNECTED)
+            callback: Function to call when the event is emitted.
+
+        """
+        self.__event_manager.on(event, callback)
+
+    def off(self, event: str, callback: Optional[Callable]) -> None:
+        """Deregister custom event handlers
+
+        Args:
+            event: Event name (e.g. EventType.OPERATOR_UPLOAD)
+            callback:
+        """
+        self.__event_manager.off(event, callback)
+
+    def _bridge_node_room_events(self, node: Any, node_id: str, node_role: str, room_name: str) -> None:
+        """
+        Bridge LiveKit room events from a specific node to the central EventManager.
+
+        Args:
+            node: The node instance (subscriber or publisher)
+            node_id: Unique node identifier
+            node_role: "subscriber" or "publisher"
+            room_name: LiveKit room name
+        """
+        # Extract room from node (works for both subscriber and publisher)
+        room = None
+        if hasattr(node, "room"):
+            room = node.room
+        elif hasattr(node, "_subscriber") and hasattr(node._subscriber, "room"):
+            room = node._subscriber.room
+        elif hasattr(node, "_publisher") and hasattr(node._publisher, "room"):
+            room = node._publisher.room
+
+        if not room or node_id in self._bridged_rooms:
+            return
+
+        # Store room reference
+        self._rooms[node_id] = room
+        self._bridged_rooms.add(node_id)
+
+        # Create metadata for all events from this room
+        def create_event_data(base_data: dict = None) -> dict:
+            """Helper to add room context to event data"""
+            data = {
+                "node_id": node_id,
+                "node_role": node_role,
+                "room_name": room_name,
+            }
+            if base_data:
+                data.update(base_data)
+            return data
+
+        # Bridge: participant_connected
+        @room.on("participant_connected")
+        def on_participant_connected(participant):
+            asyncio.create_task(
+                self.event_manager.emit(
+                    EventType.PARTICIPANT_CONNECTED,
+                    create_event_data(
+                        {
+                            "identity": participant.identity,
+                            "sid": participant.sid,
+                        }
+                    ),
+                )
+            )
+            logging.debug(f"🟢 [{node_id}] Participant connected: {participant.identity}")
+
+        # Bridge: participant_disconnected
+        @room.on("participant_disconnected")
+        def on_participant_disconnected(participant):
+            asyncio.create_task(
+                self.event_manager.emit(
+                    EventType.PARTICIPANT_DISCONNECTED,
+                    create_event_data(
+                        {
+                            "identity": participant.identity,
+                            "sid": participant.sid,
+                        }
+                    ),
+                )
+            )
+            logging.debug(f"🔴 [{node_id}] Participant disconnected: {participant.identity}")
+
+        # Bridge: track_published
+        @room.on("track_published")
+        def on_track_published(publication, participant):
+            asyncio.create_task(
+                self.event_manager.emit(
+                    "track_published",
+                    create_event_data(
+                        {
+                            "track_kind": str(publication.kind),
+                            "track_sid": publication.sid,
+                            "participant_identity": participant.identity,
+                            "participant_sid": participant.sid,
+                        }
+                    ),
+                )
+            )
+            logging.debug(f"📹 [{node_id}] Track published: {publication.kind} by {participant.identity}")
+
+        # Bridge: track_subscribed (for subscribers)
+        if node_role == "subscriber":
+
+            @room.on("track_subscribed")
+            def on_track_subscribed(track, publication, participant):
+                asyncio.create_task(
+                    self.event_manager.emit(
+                        "track_subscribed",
+                        create_event_data(
+                            {
+                                "track_kind": str(track.kind),
+                                "track_sid": track.sid,
+                                "participant_identity": participant.identity,
+                                "participant_sid": participant.sid,
+                            }
+                        ),
+                    )
+                )
+                logging.debug(f"📺 [{node_id}] Track subscribed: {track.kind} from {participant.identity}")
+
+        # Bridge: data_received (for subscribers)
+        if node_role == "subscriber":
+
+            @room.on("data_received")
+            def on_data_received(packet: rtc.DataPacket):
+                try:
+                    # Try to decode as JSON
+                    import json
+
+                    data = json.loads(packet.data.decode("utf-8"))
+
+                    # Emit generic data_received event
+                    asyncio.create_task(
+                        self.__event_manager.emit(
+                            EventType.DATA_RECEIVED,
+                            create_event_data(
+                                {
+                                    "data": data,
+                                    "participant": packet.participant.identity if packet.participant else None,
+                                }
+                            ),
+                        )
+                    )
+
+                    # Emit specific action events if present
+                    if isinstance(data, dict) and "action" in data:
+                        action = data["action"]
+                        if action == "upload":
+                            asyncio.create_task(
+                                self.__event_manager.emit(EventType.OPERATOR_UPLOAD, create_event_data(data))
+                            )
+                        elif action == "record":
+                            asyncio.create_task(
+                                self.__event_manager.emit(EventType.OPERATOR_RECORD, create_event_data(data))
+                            )
+
+                        # Also emit action-specific event
+                        asyncio.create_task(self.__event_manager.emit(f"action:{action}", create_event_data(data)))
+
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    # Emit raw data if not JSON
+                    asyncio.create_task(
+                        self.__event_manager.emit(
+                            EventType.DATA_RECEIVED,
+                            create_event_data(
+                                {
+                                    "data": packet.data,
+                                    "raw": True,
+                                    "participant": packet.participant.identity if packet.participant else None,
+                                }
+                            ),
+                        )
+                    )
+
+        # Bridge: connection_quality_changed
+        @room.on("connection_quality_changed")
+        def on_quality_changed(quality, participant):
+            asyncio.create_task(
+                self.__event_manager.emit(
+                    "connection_quality_changed",
+                    create_event_data(
+                        {
+                            "quality": str(quality),
+                            "participant_identity": participant.identity,
+                            "participant_sid": participant.sid,
+                        }
+                    ),
+                )
+            )
+
+        # Bridge: connection_state_changed
+        @room.on("connection_state_changed")
+        def on_connection_state_changed(state):
+            asyncio.create_task(
+                self.__event_manager.emit(
+                    "connection_state_changed",
+                    create_event_data(
+                        {
+                            "state": str(state),
+                        }
+                    ),
+                )
+            )
+
+        logging.info(f"🌉 Bridged LiveKit events for node '{node_id}' (room: {room_name})")
 
     def _check_hf_authenticate(self) -> bool:
         """Check if user is authenticated with Hugging Face Hub

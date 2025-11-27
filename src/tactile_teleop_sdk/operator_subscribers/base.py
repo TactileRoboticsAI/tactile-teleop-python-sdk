@@ -50,6 +50,8 @@ class BaseOperatorSubscriber(ABC):
         action = data["action"]
         if action == "upload":
             await upload_dataset(url, message)
+        if action == "record":
+            await record_dataset()
 
     async def connect(self) -> None:
         """Connect to transport layer and start receiving data."""
@@ -152,3 +154,7 @@ async def upload_dataset(url: str, message: Optional[str] = None):
         raise ValueError(f"repo at {url} does either not exist or you do not have access to it: {str(e)}")
     except ValueError as e:
         raise e
+
+
+async def record_dataset():
+    pass

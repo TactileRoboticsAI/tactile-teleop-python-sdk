@@ -1,0 +1,67 @@
+# Default configuration for Tactile Teleop SDK
+# This file provides base defaults that can be overridden by:
+# 1. User config file (tactile.toml)
+# 2. Environment variables (TACTILE_*)
+# 3. Runtime arguments
+
+[auth]
+robot_id = ""
+api_key = ""
+
+[protocol]
+protocol = "livekit"
+ttl_minutes = 120
+
+[server]
+backend_url = "https://10.5.177.78:8443/"
+auth_endpoint = "api/robot/auth-node"
+
+[dataset]
+name = "tactile_dataset"
+
+[subscribers]
+node_id = "my-special-sub"
+room_name = "my-room"
+token = "fdajklfd"
+server_url = "https://my-server.io"
+
+[publishers]
+node_id = "my-special-pub"
+room_name = "my-room"
+token = "fdajklfd"
+server_url = "https://my-server.io"
+
+[dataset.features.action]
+dtype = "float32"
+shape = [3]
+names = ["joint_1", "joint_2", "joint_3"]
+
+[observation.images.front]
+dtype = "video"
+shape = [220, 300, 10]
+names = ["height", "width", "channels"]
+
+[observation.images.wrist]
+dtype = "image"
+shape = [480, 640, 10]
+names = ["height", "width", "channels"]
+
+[cameras.front]
+name = "Front Camera"
+type = "stereo"
+mode = "streaming"
+fps = 60
+frame_height = 220
+frame_width = 300
+index = 6
+capture_api = 200
+
+[cameras.wrist]
+name = "Wrist Camera"
+type = "monocular"
+mode = "hybrid"
+fps = 30
+frame_height = 480
+frame_width = 640
+index = 8
+capture_api = 200

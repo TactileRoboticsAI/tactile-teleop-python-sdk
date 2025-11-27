@@ -5,7 +5,7 @@ from tactile_teleop_sdk.config import TactileConfig
 
 async def main():
     # Initialize API with config from environment variables
-    config = TactileConfig.from_env()
+    config = TactileConfig.load()
     api = TactileAPI(config)
 
     # Connect and wait for operator
