@@ -15,6 +15,7 @@ from huggingface_hub import HfApi, login, auth_check
 from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
+from tactile_teleop_sdk import lerobot
 from tactile_teleop_sdk.events import EventManager, EventType
 from tactile_teleop_sdk.config import TactileConfig
 from tactile_teleop_sdk.factory_configs import (
@@ -30,6 +31,7 @@ from tactile_teleop_sdk.control_subscribers.base import BaseControlSubscriber
 from tactile_teleop_sdk.camera.camera_publisher.base import BaseCameraPublisher
 from tactile_teleop_sdk.control_subscribers.base import BaseControlGoal
 from tactile_teleop_sdk.operator_subscribers.base import BaseOperatorSubscriber
+from tactile_teleop_sdk.recorder import Recorder
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s")
 
@@ -60,6 +62,7 @@ class TactileAPI:
         # Event Manager
         self.__rooms: Dict[str, rtc.Room] = {}
         self.__event_manager = EventManager()
+        self.__register_default_listeners()
 
         # Node caches
         self._subscribers: dict[str, BaseSubscriberNode] = {}
@@ -192,6 +195,7 @@ class TactileAPI:
             await node.disconnect()
         self._publishers.clear()
 
+        self.__rooms.clear()
         self.__operator_connected = False
         logging.info("✅ Monitoring stopped, all nodes disconnected")
 
@@ -462,12 +466,11 @@ class TactileAPI:
         elif hasattr(node, "_publisher") and hasattr(node._publisher, "room"):
             room = node._publisher.room
 
-        if not room or node_id in self._bridged_rooms:
+        if not room:
             return
 
         # Store room reference
-        self._rooms[node_id] = room
-        self._bridged_rooms.add(node_id)
+        self.__rooms[node_id] = room
 
         # Create metadata for all events from this room
         def create_event_data(base_data: dict = None) -> dict:
@@ -636,6 +639,42 @@ class TactileAPI:
             )
 
         logging.info(f"🌉 Bridged LiveKit events for node '{node_id}' (room: {room_name})")
+
+    def get_room(self, node_id: str) -> Optional[rtc.Room]:
+        """Get direct access to a specific node's LiveKit room.
+
+        Args:
+            node_id: Unique node identifier
+        """
+        return self.__rooms.get(node_id)
+
+    @property
+    def rooms(self):
+        """Get all active LiveKit rooms"""
+        return self.__rooms.copy()
+
+    def __register_default_listeners(self) -> None:
+
+        @self.on(EventType.OPERATOR_UPLOAD)
+        async def default_upload_handler(data: dict):
+            try:
+                url = data.get("url")
+                message = data.get("message")
+
+                if not url:
+                    logging.error("upload request missing 'url' field")
+                    return
+                await lerobot.upload_episode(url, message)
+                logging.info("Upload completed successfully.")
+            except Exception as e:
+                logging.error(f"Upload failed: {e}")
+
+        @self.on(EventType.OPERATOR_RECORD)
+        async def default_record_handler(data: dict):
+            try:
+                await Recorder.record(data)
+            except Exception as e:
+                logging.error(f"Recording failed: {e}")
 
     def _check_hf_authenticate(self) -> bool:
         """Check if user is authenticated with Hugging Face Hub

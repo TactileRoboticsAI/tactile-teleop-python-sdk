@@ -195,6 +195,10 @@ class Recorder:
                 }
         return feutures
 
+    @staticmethod
+    async def record():
+        pass
+
     def _create_dataset(self):
         dataset = LeRobotDataset.create(
             repo_id=self.repo_id,
