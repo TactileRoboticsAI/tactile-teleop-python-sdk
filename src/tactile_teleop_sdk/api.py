@@ -676,18 +676,6 @@ class TactileAPI:
             except Exception as e:
                 logging.error(f"Recording failed: {e}")
 
-    def _check_hf_authenticate(self) -> bool:
-        """Check if user is authenticated with Hugging Face Hub
-        Returns:
-            True if authenticated
-            False if not authenticated
-        """
-        try:
-            HfApi()
-            return True
-        except Exception as e:
-            return False
-
     async def authenticate_hf(self) -> bool:
         """Autenticates with Hugging Face Hub using the environment variable 'HF_TOKEN'
         Returns:

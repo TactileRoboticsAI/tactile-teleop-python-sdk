@@ -14,7 +14,6 @@ from lerobot.utils.utils import say
 from lerobot.utils.visualization_utils import log_rerun_data, _init_rerun
 
 from tactile_teleop_sdk.camera.camera_config import CameraConfig
-from tactile_teleop_sdk.camera.camera_streamer import SharedCameraData
 
 logger = logging.getLogger(__name__)
 

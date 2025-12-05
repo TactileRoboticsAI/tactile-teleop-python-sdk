@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import os
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
-from tactile_teleop_sdk import TactileAPI
 
 from tactile_teleop_sdk.camera.camera import Camera
 from tactile_teleop_sdk.camera.camera_config import CameraConfig, CameraMode, CameraType
@@ -14,12 +14,15 @@ from tactile_teleop_sdk.camera.stereo_camera import StereoCamera
 # Load environment variables from the project root
 load_dotenv()
 
+if TYPE_CHECKING:
+    from tactile_teleop_sdk import TactileAPI
+
 
 class CameraStreamer:
 
-    def __init__(self, configs: list[CameraConfig], shared_data: SharedCameraData = None):
+    def __init__(self, configs: list[CameraConfig], shared_data: SharedCameraData = None, api: TactileAPI = None):
         self.logger = logging.getLogger(__name__)
-        self.api = TactileAPI(api_key=os.getenv("TACTILE_API_KEY"))
+        self.api = api
         self.cameras = []
         self.shared_data = shared_data
         self.tasks = []
