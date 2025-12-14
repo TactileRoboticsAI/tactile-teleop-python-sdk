@@ -1,12 +1,32 @@
-# Tactile Teleop Python SDK
+# Tactile Teleop SDK - Python
 
 ## Overview
 
-The Tactile Teleop Python SDK enables seamless integration between robotic manipulation systems and VR-based teleoperation. It provides:
+The Tactile Teleop SDK allows for real-time robot teleoperation right from the web-browser of your VR Headset.
 
-- **VR Controller Input**: Real-time low-latency VR controller data for robotic arm control  
-- **Camera Streaming**: Stereo and mono camera feed streaming to VR headsets  
+
+### Core functionalities
+- (egocentric) stereo and mono camera streaming
+- operator controls for recording data
+- direct integration with LeRobot for data recording 
 - **Easy Setup**: Connect your robot in minutes - just generate an API key at [teleop.tactilerobotics.ai](https://teleop.tactilerobotics.ai), plug it into the Python SDK, and access your robot directly from the VR headset’s native browser.
+
+
+## Supported data streams:
+- **VR Controller Input**: End-effector pose, button signals from the controlle, trigger, grip
+
+## Supported data transfer protocols:
+- WebRTC (powered by livekit)
+
+## Supported VR Headsets
+- Meta Quest 3
+- Meta Quest 3s
+
+## Configure your own operator workflows:
+- Create your own mappings for VR-Controller buttons
+- Configure vide stream and layouts
+
+
 ## Quickstart
 
 ### Conda Installation
